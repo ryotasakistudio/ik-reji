@@ -535,7 +535,7 @@ async function loadUserData(userId) {
     .from('app_data')
     .select('content')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
   if (data?.content) return data.content;
   const initial = { products:[], transactions:[], settlements:[], cashLedger:[], regiFund:0 };
   await supabase.from('app_data').upsert({ user_id: userId, content: initial });
