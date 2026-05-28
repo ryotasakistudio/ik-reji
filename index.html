@@ -555,7 +555,7 @@ let editingProductId = null;
 let productVariants = [];
 let productVariantStock = {};
 let variantSelectProduct = null;
-let variantSelections = {};
+let variantQtys = {};
 let cart = [];
 let selectedPayMethod = null;
 let cashInput = '';
@@ -912,62 +912,80 @@ function addToCart(productId) {
 function openVariantSelect(productId) {
   variantSelectProduct = appData.products.find(x => x.id === productId);
   if (!variantSelectProduct) return;
-  variantSelections = {};
+  variantQtys = {};
+  window._variantKeys = buildVariantKeys(variantSelectProduct.variants);
   document.getElementById('variant-select-content').innerHTML = renderVariantSelectContent();
   document.getElementById('modal-variant-select').classList.add('open');
 }
 function renderVariantSelectContent() {
   const p = variantSelectProduct;
+  const keys = window._variantKeys || [];
   const imgHtml = p.imageUrl
     ? `<img src="${p.imageUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0">`
     : `<div style="width:56px;height:56px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.75rem;flex-shrink:0">${p.emoji}</div>`;
-  const variantHtml = p.variants.map((v, typeIdx) => `
-    <div style="margin-bottom:1rem">
-      <div style="font-size:0.8125rem;color:var(--text2);margin-bottom:0.5rem;font-weight:500">${v.type}</div>
-      <div style="display:flex;flex-wrap:wrap">
-        ${v.options.map((o, optIdx) => {
-          const testSels = {...variantSelections, [typeIdx]: optIdx};
-          const testKey = p.variants.every((_, i) => testSels[i] !== undefined)
-            ? p.variants.map((vv, i) => vv.options[testSels[i]]).join('/') : null;
-          const optStock = testKey ? (p.variantStock?.[testKey] || 0) :
-            Object.entries(p.variantStock||{}).filter(([k])=>k.split('/')[typeIdx]===o).reduce((s,[,v])=>s+v,0);
-          const selected = variantSelections[typeIdx] === optIdx;
-          return `<button class="variant-opt-select-btn ${selected?'selected':''}" ${optStock<=0?'disabled':''} onclick="selectVariantOption(${typeIdx},${optIdx})">${o}${optStock<=0?' (在庫なし)':''}</button>`;
-        }).join('')}
-      </div>
-    </div>`).join('');
-  const currentKey = p.variants.every((_, i) => variantSelections[i] !== undefined)
-    ? p.variants.map((v, i) => v.options[variantSelections[i]]).join('/') : null;
-  const currentStock = currentKey ? (p.variantStock?.[currentKey] || 0) : null;
+  const rowsHtml = keys.map((key, keyIdx) => {
+    const stock = p.variantStock?.[key] || 0;
+    const qty = variantQtys[key] || 0;
+    const minusDisabled = qty <= 0;
+    const plusDisabled = stock <= 0 || qty >= stock;
+    return `
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.625rem 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;font-size:0.9375rem;font-weight:500">${key}</div>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <button onclick="changeVariantQty(${keyIdx},-1)" ${minusDisabled?'disabled':''} style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:1.125rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:${minusDisabled?0.35:1}">−</button>
+          <span style="width:1.5rem;text-align:center;font-weight:600;font-size:1rem">${qty}</span>
+          <button onclick="changeVariantQty(${keyIdx},1)" ${plusDisabled?'disabled':''} style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:1.125rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:${plusDisabled?0.35:1}">＋</button>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text2);width:3.5rem;text-align:right">${stock<=0?'在庫なし':'在庫'+stock}</div>
+      </div>`;
+  }).join('');
+  const totalQty = keys.reduce((s, k) => s + (variantQtys[k] || 0), 0);
+  const totalPrice = totalQty * p.price;
   return `
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:0.75rem;padding-bottom:1rem;margin-bottom:1rem;border-bottom:1px solid var(--border)">
       ${imgHtml}
       <div><div style="font-weight:600;font-size:1rem">${p.name}</div><div style="color:var(--accent);font-weight:700;font-size:1.125rem">¥${p.price.toLocaleString()}</div></div>
     </div>
-    ${variantHtml}
-    ${currentStock !== null ? `<div style="font-size:0.8125rem;color:var(--text2);margin-bottom:0.75rem">在庫: ${currentStock}個</div>` : ''}
-    <button class="btn-primary" onclick="addVariantToCart()" ${!currentKey||currentStock<=0?'disabled style="opacity:0.4"':''}>カートに追加</button>
+    ${rowsHtml}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;margin-top:0.25rem">
+      <span style="color:var(--text2);font-size:0.9375rem">合計</span>
+      <span style="font-weight:700;font-size:1.125rem;color:var(--accent)">¥${totalPrice.toLocaleString()}</span>
+    </div>
+    <button class="btn-primary" onclick="addVariantToCart()" ${totalQty<=0?'disabled style="opacity:0.4"':''}>カートに追加</button>
     <button class="btn-secondary" onclick="closeModal('modal-variant-select')" style="margin-top:0.5rem;width:100%">キャンセル</button>`;
 }
-function selectVariantOption(typeIdx, optIdx) {
-  variantSelections[typeIdx] = optIdx;
+function changeVariantQty(keyIdx, delta) {
+  const key = (window._variantKeys || [])[keyIdx];
+  if (!key) return;
+  const p = variantSelectProduct;
+  const stock = p.variantStock?.[key] || 0;
+  const current = variantQtys[key] || 0;
+  const newQty = current + delta;
+  if (newQty < 0) return;
+  if (newQty > stock) { showToast('在庫数を超えています'); return; }
+  variantQtys[key] = newQty;
   document.getElementById('variant-select-content').innerHTML = renderVariantSelectContent();
 }
 function addVariantToCart() {
   const p = variantSelectProduct;
   if (!p) return;
-  if (!p.variants.every((_, i) => variantSelections[i] !== undefined)) { showToast('バリアントを選択してください'); return; }
-  const variantKey = p.variants.map((v, i) => v.options[variantSelections[i]]).join('/');
-  const stock = p.variantStock?.[variantKey] || 0;
-  if (stock <= 0) { showToast('在庫がありません'); return; }
-  const existing = cart.find(c => c.id === p.id && c.variantKey === variantKey);
-  if (existing) {
-    if (existing.qty >= stock) { showToast('在庫数を超えています'); return; }
-    existing.qty++;
-  } else {
-    cart.push({ id: p.id, variantKey, qty: 1 });
+  const keys = window._variantKeys || [];
+  let added = false;
+  for (const key of keys) {
+    const qty = variantQtys[key] || 0;
+    if (qty <= 0) continue;
+    const stock = p.variantStock?.[key] || 0;
+    const existing = cart.find(c => c.id === p.id && c.variantKey === key);
+    if (existing) {
+      if (existing.qty + qty > stock) { showToast(`${key}: 在庫数を超えています`); return; }
+      existing.qty += qty;
+    } else {
+      cart.push({ id: p.id, variantKey: key, qty });
+    }
+    added = true;
   }
+  if (!added) { showToast('数量を選択してください'); return; }
   closeModal('modal-variant-select');
   updateCartBar(); renderProducts();
 }
