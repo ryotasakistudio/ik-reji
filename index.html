@@ -218,6 +218,16 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .report-picker-row{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.875rem;flex-wrap:wrap}
 .report-picker-label{font-size:0.8125rem;color:var(--text2);min-width:2.5rem}
 .report-select{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:0.375rem 0.5rem;font-size:0.875rem;font-family:inherit}
+.variant-type-row{background:var(--surface2);border-radius:var(--radius-sm);padding:0.625rem 0.75rem;margin-bottom:0.5rem}
+.variant-type-name-input{flex:1;padding:0.375rem 0.5rem;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:0.875rem;background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
+.variant-opt-tag{display:inline-flex;align-items:center;gap:0.25rem;background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:0.2rem 0.5rem;font-size:0.8125rem;margin:0.125rem}
+.variant-stock-row{display:flex;align-items:center;justify-content:space-between;padding:0.375rem 0;border-bottom:1px solid var(--border)}
+.variant-stock-row:last-child{border-bottom:none}
+.variant-stock-label{font-size:0.875rem;color:var(--text2)}
+.variant-stock-input{width:60px;text-align:right;padding:0.25rem 0.375rem;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:0.875rem;font-family:inherit;background:var(--surface);color:var(--text)}
+.variant-opt-select-btn{padding:0.5rem 1rem;border:1.5px solid var(--border2);border-radius:var(--radius-sm);font-size:0.875rem;background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer;margin:0.25rem}
+.variant-opt-select-btn.selected{border-color:var(--accent);color:var(--accent);font-weight:600}
+.variant-opt-select-btn:disabled{opacity:0.35;cursor:not-allowed}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.js"></script>
 <script>
@@ -502,15 +512,21 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
       <label>金額（税込）</label>
       <input type="number" id="product-price-input" placeholder="3000" inputmode="numeric">
     </div>
-    <div class="form-group">
+    <div class="form-group" id="product-stock-group">
       <label>在庫数</label>
       <input type="number" id="product-stock-input" placeholder="10" inputmode="numeric">
     </div>
+    <div id="product-variant-editor"></div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('modal-add-product')">キャンセル</button>
       <button class="btn-accent" id="save-product-btn" onclick="saveProduct()">保存</button>
     </div>
   </div>
+</div>
+
+<!-- VARIANT SELECT MODAL -->
+<div class="modal-overlay" id="modal-variant-select">
+  <div class="modal-sheet" id="variant-select-content"></div>
 </div>
 
 <!-- TX DETAIL MODAL -->
@@ -536,6 +552,10 @@ let selectedEmoji = '👕';
 let selectedImageFile = null;
 let selectedImageUrl = null;
 let editingProductId = null;
+let productVariants = [];
+let productVariantStock = {};
+let variantSelectProduct = null;
+let variantSelections = {};
 let cart = [];
 let selectedPayMethod = null;
 let cashInput = '';
@@ -709,7 +729,10 @@ function renderProductGrid(containerId, products) {
     return;
   }
   el.innerHTML = products.map(p => {
-    const qty = (cart.find(c => c.id === p.id) || {qty:0}).qty;
+    const qty = cart.filter(c => c.id === p.id).reduce((s,c) => s+c.qty, 0);
+    const displayStock = (p.variants && p.variants.length > 0)
+      ? Object.values(p.variantStock||{}).reduce((s,v)=>s+v,0)
+      : p.stock;
     return `<div class="product-card" onclick="addToCart('${p.id}')">
       <div class="product-img">${p.imageUrl ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover;display:block">` : p.emoji}</div>
       ${qty > 0 ? `<div class="badge-cart">${qty}</div>` : ''}
@@ -719,7 +742,7 @@ function renderProductGrid(containerId, products) {
       <div class="product-info">
         <div class="product-name">${p.name}</div>
         <div class="product-price">¥${p.price.toLocaleString()}</div>
-        <div class="product-stock">在庫: ${p.stock}点</div>
+        <div class="product-stock">在庫: ${displayStock}点</div>
       </div>
     </div>`;
   }).join('');
@@ -729,11 +752,15 @@ function openAddProduct(productId = null) {
   selectedEmoji = '👕';
   selectedImageFile = null;
   selectedImageUrl = null;
+  productVariants = [];
+  productVariantStock = {};
   if (productId) {
     const p = appData.products.find(x => x.id === productId);
     if (p) {
       selectedEmoji = p.emoji || '👕';
       selectedImageUrl = p.imageUrl || null;
+      productVariants = JSON.parse(JSON.stringify(p.variants || []));
+      productVariantStock = Object.assign({}, p.variantStock || {});
       document.getElementById('product-name-input').value = p.name;
       document.getElementById('product-price-input').value = p.price;
       document.getElementById('product-stock-input').value = p.stock;
@@ -754,6 +781,7 @@ function openAddProduct(productId = null) {
     preview.innerHTML = `<i class="ti ti-camera" style="font-size:2rem;color:var(--text3)"></i><span style="font-size:0.8125rem;color:var(--text3)">タップして画像を選択</span>`;
   }
   document.getElementById('product-image-input').value = '';
+  renderVariantSection();
   document.getElementById('modal-add-product').classList.add('open');
 }
 function handleProductImageChange(input) {
@@ -765,39 +793,99 @@ function handleProductImageChange(input) {
   };
   reader.readAsDataURL(selectedImageFile);
 }
+function buildVariantKeys(variants) {
+  const active = (variants || []).filter(v => v.options.length > 0);
+  if (!active.length) return [];
+  let keys = [''];
+  for (const v of active) {
+    const next = [];
+    for (const key of keys) for (const opt of v.options) next.push(key ? key+'/'+opt : opt);
+    keys = next;
+  }
+  return keys;
+}
+function renderVariantSection() {
+  const keys = buildVariantKeys(productVariants);
+  const hasVariants = keys.length > 0;
+  document.getElementById('product-stock-group').style.display = hasVariants ? 'none' : '';
+  let html = `<div class="form-group">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+      <label style="margin-bottom:0">バリアント（任意）</label>
+      <button type="button" onclick="addVariantType()" style="font-size:0.8125rem;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;font-family:inherit">+ 追加</button>
+    </div>
+    ${productVariants.map((v, i) => `
+      <div class="variant-type-row">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.375rem">
+          <input type="text" class="variant-type-name-input" value="${v.type}" placeholder="例: サイズ" oninput="productVariants[${i}].type=this.value">
+          <button type="button" onclick="removeVariantType(${i})" style="font-size:0.75rem;color:var(--red);background:none;border:none;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
+        </div>
+        <div>
+          ${v.options.map((o, j) => `<span class="variant-opt-tag">${o} <span onclick="removeVariantOption(${i},${j})" style="cursor:pointer;color:var(--text3)">×</span></span>`).join('')}
+          <button type="button" onclick="addVariantOption(${i})" class="variant-opt-tag" style="cursor:pointer;color:var(--accent);border-color:var(--accent)">+ 追加</button>
+        </div>
+      </div>`).join('')}
+  </div>`;
+  if (hasVariants) {
+    html += `<div class="form-group"><label>在庫（バリアント別）</label>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:0.5rem 0.75rem">
+        ${keys.map(k => `<div class="variant-stock-row">
+          <span class="variant-stock-label">${k}</span>
+          <input type="number" class="variant-stock-input" value="${productVariantStock[k]||0}" min="0" inputmode="numeric" onchange="productVariantStock['${k}']=parseInt(this.value)||0">
+        </div>`).join('')}
+      </div></div>`;
+  }
+  document.getElementById('product-variant-editor').innerHTML = html;
+}
+function addVariantType() {
+  const name = prompt('バリアントタイプ名を入力（例: サイズ、カラー）');
+  if (!name || !name.trim()) return;
+  productVariants.push({ type: name.trim(), options: [] });
+  renderVariantSection();
+}
+function removeVariantType(idx) {
+  productVariants.splice(idx, 1);
+  productVariantStock = {};
+  renderVariantSection();
+}
+function addVariantOption(typeIdx) {
+  const opt = prompt('オプション名を入力（例: S、赤）');
+  if (!opt || !opt.trim()) return;
+  productVariants[typeIdx].options.push(opt.trim());
+  renderVariantSection();
+}
+function removeVariantOption(typeIdx, optIdx) {
+  productVariants[typeIdx].options.splice(optIdx, 1);
+  productVariantStock = {};
+  renderVariantSection();
+}
 async function saveProduct() {
   const name = document.getElementById('product-name-input').value.trim();
   const price = parseInt(document.getElementById('product-price-input').value);
-  const stock = parseInt(document.getElementById('product-stock-input').value);
-  if (!name || isNaN(price) || isNaN(stock)) { showToast('全項目を入力してください'); return; }
+  if (!name || isNaN(price)) { showToast('全項目を入力してください'); return; }
+  const keys = buildVariantKeys(productVariants);
+  const hasVariants = keys.length > 0;
+  const stock = hasVariants ? 0 : (parseInt(document.getElementById('product-stock-input').value) || 0);
+  const productId = editingProductId || ('p_' + Date.now());
   let imageUrl = selectedImageUrl;
   if (selectedImageFile) {
-    const productId = editingProductId || ('p_' + Date.now());
     const ext = selectedImageFile.name.split('.').pop().toLowerCase() || 'jpg';
     const path = `${currentUser.id}/${productId}.${ext}`;
     const { error: uploadError } = await window.supabase.storage
-      .from('product-images')
-      .upload(path, selectedImageFile, { upsert: true });
+      .from('product-images').upload(path, selectedImageFile, { upsert: true });
     if (uploadError) { showToast('画像のアップロードに失敗しました'); return; }
     const { data: urlData } = window.supabase.storage.from('product-images').getPublicUrl(path);
     imageUrl = urlData.publicUrl;
-    if (editingProductId) {
-      const p = appData.products.find(x => x.id === editingProductId);
-      if (p) { p.name=name; p.price=price; p.stock=stock; p.emoji=selectedEmoji; p.imageUrl=imageUrl; }
-    } else {
-      appData.products.push({ id: productId, name, price, stock, emoji: selectedEmoji, imageUrl, favorite: false });
-    }
-  } else {
-    if (editingProductId) {
-      const p = appData.products.find(x => x.id === editingProductId);
-      if (p) { p.name=name; p.price=price; p.stock=stock; p.emoji=selectedEmoji; p.imageUrl=imageUrl; }
-    } else {
-      appData.products.push({ id:'p_'+Date.now(), name, price, stock, emoji:selectedEmoji, imageUrl, favorite:false });
-    }
   }
-  saveUserData();
-  closeModal('modal-add-product');
-  renderProducts();
+  const productData = { name, price, stock, emoji: selectedEmoji, imageUrl,
+    variants: hasVariants ? productVariants.map(v => ({...v, options:[...v.options]})) : [],
+    variantStock: hasVariants ? {...productVariantStock} : {} };
+  if (editingProductId) {
+    const p = appData.products.find(x => x.id === editingProductId);
+    if (p) Object.assign(p, productData);
+  } else {
+    appData.products.push({ id: productId, favorite: false, ...productData });
+  }
+  saveUserData(); closeModal('modal-add-product'); renderProducts();
   showToast(editingProductId ? '商品を更新しました' : '商品を追加しました');
 }
 function toggleFav(e, id) {
@@ -810,14 +898,77 @@ function toggleFav(e, id) {
 function addToCart(productId) {
   const p = appData.products.find(x => x.id === productId);
   if (!p) return;
+  if (p.variants && p.variants.length > 0) { openVariantSelect(productId); return; }
   if (p.stock <= 0) { showToast('在庫がありません'); return; }
-  const existing = cart.find(c => c.id === productId);
+  const existing = cart.find(c => c.id === productId && !c.variantKey);
   if (existing) {
     if (existing.qty >= p.stock) { showToast('在庫数を超えています'); return; }
     existing.qty++;
   } else {
-    cart.push({ id: productId, qty: 1 });
+    cart.push({ id: productId, variantKey: null, qty: 1 });
   }
+  updateCartBar(); renderProducts();
+}
+function openVariantSelect(productId) {
+  variantSelectProduct = appData.products.find(x => x.id === productId);
+  if (!variantSelectProduct) return;
+  variantSelections = {};
+  document.getElementById('variant-select-content').innerHTML = renderVariantSelectContent();
+  document.getElementById('modal-variant-select').classList.add('open');
+}
+function renderVariantSelectContent() {
+  const p = variantSelectProduct;
+  const imgHtml = p.imageUrl
+    ? `<img src="${p.imageUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+    : `<div style="width:56px;height:56px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.75rem;flex-shrink:0">${p.emoji}</div>`;
+  const variantHtml = p.variants.map((v, typeIdx) => `
+    <div style="margin-bottom:1rem">
+      <div style="font-size:0.8125rem;color:var(--text2);margin-bottom:0.5rem;font-weight:500">${v.type}</div>
+      <div style="display:flex;flex-wrap:wrap">
+        ${v.options.map((o, optIdx) => {
+          const testSels = {...variantSelections, [typeIdx]: optIdx};
+          const testKey = p.variants.every((_, i) => testSels[i] !== undefined)
+            ? p.variants.map((vv, i) => vv.options[testSels[i]]).join('/') : null;
+          const optStock = testKey ? (p.variantStock?.[testKey] || 0) :
+            Object.entries(p.variantStock||{}).filter(([k])=>k.split('/')[typeIdx]===o).reduce((s,[,v])=>s+v,0);
+          const selected = variantSelections[typeIdx] === optIdx;
+          return `<button class="variant-opt-select-btn ${selected?'selected':''}" ${optStock<=0?'disabled':''} onclick="selectVariantOption(${typeIdx},${optIdx})">${o}${optStock<=0?' (在庫なし)':''}</button>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+  const currentKey = p.variants.every((_, i) => variantSelections[i] !== undefined)
+    ? p.variants.map((v, i) => v.options[variantSelections[i]]).join('/') : null;
+  const currentStock = currentKey ? (p.variantStock?.[currentKey] || 0) : null;
+  return `
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:0.75rem;padding-bottom:1rem;margin-bottom:1rem;border-bottom:1px solid var(--border)">
+      ${imgHtml}
+      <div><div style="font-weight:600;font-size:1rem">${p.name}</div><div style="color:var(--accent);font-weight:700;font-size:1.125rem">¥${p.price.toLocaleString()}</div></div>
+    </div>
+    ${variantHtml}
+    ${currentStock !== null ? `<div style="font-size:0.8125rem;color:var(--text2);margin-bottom:0.75rem">在庫: ${currentStock}個</div>` : ''}
+    <button class="btn-primary" onclick="addVariantToCart()" ${!currentKey||currentStock<=0?'disabled style="opacity:0.4"':''}>カートに追加</button>
+    <button class="btn-secondary" onclick="closeModal('modal-variant-select')" style="margin-top:0.5rem;width:100%">キャンセル</button>`;
+}
+function selectVariantOption(typeIdx, optIdx) {
+  variantSelections[typeIdx] = optIdx;
+  document.getElementById('variant-select-content').innerHTML = renderVariantSelectContent();
+}
+function addVariantToCart() {
+  const p = variantSelectProduct;
+  if (!p) return;
+  if (!p.variants.every((_, i) => variantSelections[i] !== undefined)) { showToast('バリアントを選択してください'); return; }
+  const variantKey = p.variants.map((v, i) => v.options[variantSelections[i]]).join('/');
+  const stock = p.variantStock?.[variantKey] || 0;
+  if (stock <= 0) { showToast('在庫がありません'); return; }
+  const existing = cart.find(c => c.id === p.id && c.variantKey === variantKey);
+  if (existing) {
+    if (existing.qty >= stock) { showToast('在庫数を超えています'); return; }
+    existing.qty++;
+  } else {
+    cart.push({ id: p.id, variantKey, qty: 1 });
+  }
+  closeModal('modal-variant-select');
   updateCartBar(); renderProducts();
 }
 function getCartTotal() {
@@ -840,33 +991,36 @@ function openCart() {
 }
 function renderCartItems() {
   const list = document.getElementById('cart-items-list');
-  list.innerHTML = cart.map(c => {
+  list.innerHTML = cart.map((c, idx) => {
     const p = appData.products.find(x => x.id === c.id);
     if (!p) return '';
     return `<div class="checkout-item">
       <div class="checkout-item-left">
         <div class="checkout-item-emoji">${p.imageUrl ? `<img src="${p.imageUrl}" style="width:1.5rem;height:1.5rem;object-fit:cover;border-radius:4px;display:block">` : p.emoji}</div>
         <div>
-          <div class="checkout-item-name">${p.name}</div>
+          <div class="checkout-item-name">${p.name}${c.variantKey?`<span style="color:var(--text2);font-size:0.75rem"> (${c.variantKey})</span>`:''}</div>
           <div class="checkout-item-price">¥${p.price.toLocaleString()} × ${c.qty}</div>
         </div>
       </div>
       <div class="checkout-item-qty">
-        <button class="qty-btn" onclick="changeCartQty('${c.id}',-1)">−</button>
+        <button class="qty-btn" onclick="changeCartQty(${idx},-1)">−</button>
         <div class="qty-num">${c.qty}</div>
-        <button class="qty-btn" onclick="changeCartQty('${c.id}',1)">＋</button>
+        <button class="qty-btn" onclick="changeCartQty(${idx},1)">＋</button>
       </div>
     </div>`;
   }).join('');
   document.getElementById('cart-total-display').textContent = '¥' + getCartTotal().toLocaleString();
 }
-function changeCartQty(id, delta) {
-  const item = cart.find(c => c.id === id);
+function changeCartQty(idx, delta) {
+  const item = cart[idx];
   if (!item) return;
-  const p = appData.products.find(x => x.id === id);
+  const p = appData.products.find(x => x.id === item.id);
   item.qty += delta;
-  if (item.qty <= 0) cart = cart.filter(c => c.id !== id);
-  else if (p && item.qty > p.stock) { item.qty = p.stock; showToast('在庫数を超えています'); }
+  if (item.qty <= 0) { cart.splice(idx, 1); }
+  else {
+    const maxStock = item.variantKey ? (p?.variantStock?.[item.variantKey]||0) : (p?.stock||0);
+    if (item.qty > maxStock) { item.qty = maxStock; showToast('在庫数を超えています'); }
+  }
   renderCartItems(); renderProducts();
 }
 function selectPayMethod(method) {
@@ -935,11 +1089,16 @@ function recordTransaction(method, received, change) {
   const total = getCartTotal();
   const items = cart.map(c => {
     const p = appData.products.find(x => x.id === c.id);
-    return { productId:c.id, name:p.name, price:p.price, qty:c.qty, emoji:p.emoji };
+    return { productId:c.id, name:p.name, price:p.price, qty:c.qty, emoji:p.emoji, variantKey:c.variantKey||null };
   });
   cart.forEach(c => {
     const p = appData.products.find(x => x.id === c.id);
-    if (p) p.stock = Math.max(0, p.stock - c.qty);
+    if (!p) return;
+    if (c.variantKey && p.variantStock) {
+      p.variantStock[c.variantKey] = Math.max(0, (p.variantStock[c.variantKey]||0) - c.qty);
+    } else {
+      p.stock = Math.max(0, p.stock - c.qty);
+    }
   });
   appData.transactions.unshift({ id:'tx_'+Date.now(), type:'sale', method, total, received, change, items, date:new Date().toISOString() });
   cart = []; selectedPayMethod = null;
@@ -974,7 +1133,7 @@ function renderTransactions() {
     const badge = isRefund ? `<span class="tx-badge badge-refund">返品</span>` :
       tx.method==='cash' ? `<span class="tx-badge badge-cash">現金</span>` : `<span class="tx-badge badge-paypay">PayPay</span>`;
     const amtStr = isRefund ? `-¥${tx.total.toLocaleString()}` : `¥${tx.total.toLocaleString()}`;
-    const products = tx.items.map(i => `${i.emoji}${i.name}×${i.qty}`).join(' / ');
+    const products = tx.items.map(i => `${i.emoji}${i.name}${i.variantKey?`(${i.variantKey})`:''} ×${i.qty}`).join(' / ');
     return `<div class="tx-item ${isRefund?'refund':''}" onclick="openTxDetail('${tx.id}')">
       <div class="tx-item-header"><span class="tx-amount ${isRefund?'negative':''}">${amtStr}</span>${badge}</div>
       <div class="tx-meta">${dateStr}</div>
@@ -1009,7 +1168,7 @@ function openTxDetail(txId) {
     <div style="font-size:0.8125rem;font-weight:600;color:var(--text2);margin-bottom:0.5rem">商品</div>
     <div style="background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:1rem">
       ${tx.items.map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;border-bottom:1px solid var(--border)">
-        <span>${i.emoji} ${i.name} × ${i.qty}</span>
+        <span>${i.emoji} ${i.name}${i.variantKey?` (${i.variantKey})`:''} × ${i.qty}</span>
         <span style="font-weight:600">¥${(i.price*i.qty).toLocaleString()}</span>
       </div>`).join('')}
     </div>
@@ -1041,7 +1200,7 @@ function openRefund(txId) {
             <div class="refund-check ${window._selectedProducts.length===tx.items.length?'checked':''}"><i class="ti ti-check" style="font-size:0.875rem"></i></div>
           </div>
           ${tx.items.map((item,idx)=>`<div class="refund-product-item" onclick="window._toggleItem(${idx})">
-            <div>${item.emoji} ${item.name} × ${item.qty} <span style="color:var(--text2)">¥${(item.price*item.qty).toLocaleString()}</span></div>
+            <div>${item.emoji} ${item.name}${item.variantKey?` (${item.variantKey})`:''} × ${item.qty} <span style="color:var(--text2)">¥${(item.price*item.qty).toLocaleString()}</span></div>
             <div class="refund-check ${window._selectedProducts.includes(idx)?'checked':''}"><i class="ti ti-check" style="font-size:0.875rem"></i></div>
           </div>`).join('')}
         </div>`:
