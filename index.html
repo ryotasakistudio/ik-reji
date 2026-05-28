@@ -586,7 +586,23 @@ async function doRegister() {
     return;
   }
 
-  showAuthCard('complete');
+  // メール確認なし → 登録後そのままログイン
+  const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password: pw });
+  if (loginError) { showAuthCard('login'); return; }
+
+  const { data: profile } = await supabase.from('profiles').select('artist_name').eq('id', loginData.user.id).single();
+  currentUser = { id: loginData.user.id, name: profile?.artist_name || email };
+  appData = await loadUserData(loginData.user.id);
+
+  document.getElementById('topbar-artist').textContent = currentUser.name;
+  document.getElementById('logout-artist-name').textContent = currentUser.name;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'flex';
+  document.getElementById('main-app').style.flexDirection = 'column';
+  renderProducts();
+  renderTransactions();
+  renderDailyReport();
+  buildSettlementInputs();
 }
 
 async function doLogin() {
