@@ -236,8 +236,8 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <h3>ログイン</h3>
     <div class="auth-error" id="auth-error">IDまたはパスワードが正しくありません</div>
     <div class="form-group">
-      <label>メールアドレス</label>
-      <input type="email" id="login-id" placeholder="mail@example.com" autocomplete="email">
+      <label>アーティストID</label>
+      <input type="text" id="login-id" placeholder="artist_id" autocomplete="username">
     </div>
     <div class="form-group">
       <label>パスワード</label>
@@ -256,8 +256,8 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
       <input type="text" id="register-name" placeholder="アーティスト名" autocomplete="name">
     </div>
     <div class="form-group">
-      <label>メールアドレス</label>
-      <input type="email" id="register-email" placeholder="mail@example.com" autocomplete="email">
+      <label>アーティストID</label>
+      <input type="text" id="register-email" placeholder="artist_id（半角英数字）" autocomplete="username">
     </div>
     <div class="form-group">
       <label>パスワード</label>
@@ -562,17 +562,18 @@ function showAuthCard(name) {
 
 async function doRegister() {
   const name = document.getElementById('register-name').value.trim();
-  const email = document.getElementById('register-email').value.trim();
+  const artistId = document.getElementById('register-email').value.trim();
   const pw = document.getElementById('register-pw').value;
   const err = document.getElementById('register-error');
   err.style.display = 'none';
 
-  if (!name || !email || !pw) {
+  if (!name || !artistId || !pw) {
     err.textContent = 'すべての項目を入力してください';
     err.style.display = 'block';
     return;
   }
 
+  const email = artistId + '@ik-reji.app';
   const { error } = await supabase.auth.signUp({
     email,
     password: pw,
@@ -606,11 +607,12 @@ async function doRegister() {
 }
 
 async function doLogin() {
-  const email = document.getElementById('login-id').value.trim();
+  const id = document.getElementById('login-id').value.trim();
   const pw = document.getElementById('login-pw').value;
   const err = document.getElementById('auth-error');
   err.style.display = 'none';
 
+  const email = id + '@ik-reji.app';
   const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
   if (error) {
     err.textContent = error.message.includes('Email not confirmed')
