@@ -529,19 +529,26 @@ let selectedPayMethod = null;
 let cashInput = '';
 let txFilter = 'all';
 
-// ======= STORAGE (localStorage for deployed version) =======
-function loadUserData(userId) {
-  try {
-    const raw = localStorage.getItem('ik_reji_' + userId);
-    if (raw) return JSON.parse(raw);
-  } catch(e) {}
-  return { products:[], transactions:[], settlements:[], cashLedger:[], regiFund:0 };
+// ======= STORAGE (Supabase) =======
+async function loadUserData(userId) {
+  const { data } = await supabase
+    .from('app_data')
+    .select('content')
+    .eq('user_id', userId)
+    .single();
+  if (data?.content) return data.content;
+  const initial = { products:[], transactions:[], settlements:[], cashLedger:[], regiFund:0 };
+  await supabase.from('app_data').upsert({ user_id: userId, content: initial });
+  return initial;
 }
-function saveUserData() {
+
+async function saveUserData() {
   if (!currentUser) return;
-  try {
-    localStorage.setItem('ik_reji_' + currentUser.id, JSON.stringify(appData));
-  } catch(e) {}
+  await supabase.from('app_data').upsert({
+    user_id: currentUser.id,
+    content: appData,
+    updated_at: new Date().toISOString()
+  });
 }
 
 // ======= AUTH =======
