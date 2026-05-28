@@ -69,6 +69,8 @@ body{font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;backgrou
 .product-stock{font-size:0.6875rem;color:var(--text3)}
 .product-fav-btn{position:absolute;top:0.5rem;right:0.5rem;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.875rem;color:var(--text3)}
 .product-fav-btn.active{color:#e74c3c}
+.product-del-btn{position:absolute;bottom:0.5rem;right:0.5rem;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.875rem;color:var(--text3)}
+.product-del-btn:hover{color:#e74c3c}
 .badge-cart{position:absolute;top:0.5rem;left:0.5rem;background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;font-size:0.6875rem;font-weight:700;display:flex;align-items:center;justify-content:center}
 
 /* Cart Bar */
@@ -445,6 +447,13 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
         <div class="others-item-left">
           <div class="others-item-icon" style="background:var(--green-bg);color:var(--green)"><i class="ti ti-wallet"></i></div>
           <div><div class="others-item-title">レジ金管理</div><div class="others-item-sub">売上入金・レジ金設定</div></div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--text3)"></i>
+      </div>
+      <div class="others-item" onclick="openOthersSection('product-manage')">
+        <div class="others-item-left">
+          <div class="others-item-icon" style="background:#f0e6fb;color:#7c3aed"><i class="ti ti-package"></i></div>
+          <div><div class="others-item-title">商品管理</div><div class="others-item-sub">在庫変更・商品削除</div></div>
         </div>
         <i class="ti ti-chevron-right" style="color:var(--text3)"></i>
       </div>
@@ -1339,11 +1348,13 @@ function doSettle() {
 
 // ======= OTHERS =======
 function openOthersSection(section) {
-  const titles = {report:'レポート','settle-history':'精算履歴','cash-manage':'レジ金管理'};
+  const titles = {report:'レポート','settle-history':'精算履歴','cash-manage':'レジ金管理','product-manage':'商品管理'};
   document.getElementById('others-sub-title').textContent = titles[section]||section;
   const content = document.getElementById('others-sub-content');
   if (section==='report') {
     renderOthersReport(content);
+  } else if (section==='product-manage') {
+    renderProductManage(content);
   } else if (section==='settle-history') {
     const settlements = appData.settlements||[];
     content.innerHTML = settlements.length ? `<div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
@@ -1408,6 +1419,77 @@ function updateOthersDay(v) { othersReportDay = v; renderOthersReport(document.g
 function updateOthersMonth(v) { othersReportMonth = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
 function updateOthersMonthYear(v) { othersReportMonthYear = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
 function updateOthersYear(v) { othersReportYear = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
+function renderProductManage(content) {
+  const products = appData.products || [];
+  if (!products.length) {
+    content.innerHTML = '<div class="empty-state"><i class="ti ti-package"></i><p>商品がありません</p></div>';
+    return;
+  }
+  content.innerHTML = `<div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.75rem">
+    ${products.map(p => {
+      const imgHtml = p.imageUrl
+        ? `<img src="${p.imageUrl}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0">`
+        : `<div style="width:44px;height:44px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">${p.emoji}</div>`;
+      const hasVariants = p.variants && p.variants.length > 0;
+      const variantKeys = hasVariants ? buildVariantKeys(p.variants) : [];
+      const stockHtml = hasVariants
+        ? variantKeys.map(key => {
+            const s = (p.variantStock||{})[key] || 0;
+            return `<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.375rem">
+              <span style="font-size:0.8125rem;color:var(--text2);min-width:4rem">${key}</span>
+              <button onclick="changeVariantStock('${p.id}','${key}',-1)" ${s<=0?'disabled':''} style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;opacity:${s<=0?0.4:1}">−</button>
+              <span style="width:2rem;text-align:center;font-weight:600;font-size:0.9375rem">${s}</span>
+              <button onclick="changeVariantStock('${p.id}','${key}',1)" style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem">＋</button>
+            </div>`;
+          }).join('')
+        : `<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.375rem">
+            <span style="font-size:0.8125rem;color:var(--text2)">在庫</span>
+            <button onclick="changeProductStock('${p.id}',-1)" ${(p.stock||0)<=0?'disabled':''} style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;opacity:${(p.stock||0)<=0?0.4:1}">−</button>
+            <span style="width:2rem;text-align:center;font-weight:600;font-size:0.9375rem">${p.stock||0}</span>
+            <button onclick="changeProductStock('${p.id}',1)" style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem">＋</button>
+          </div>`;
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.875rem">
+        <div style="display:flex;align-items:flex-start;gap:0.75rem">
+          ${imgHtml}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:0.9375rem">${p.name}</div>
+            <div style="color:var(--accent);font-size:0.875rem;margin-bottom:0.125rem">¥${p.price.toLocaleString()}</div>
+            ${stockHtml}
+          </div>
+          <button onclick="deleteProduct('${p.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0.25rem;flex-shrink:0">
+            <i class="ti ti-trash" style="font-size:1.25rem"></i>
+          </button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function changeProductStock(productId, delta) {
+  const p = appData.products.find(x => x.id === productId);
+  if (!p) return;
+  p.stock = Math.max(0, (p.stock || 0) + delta);
+  saveUserData();
+  renderProductManage(document.getElementById('others-sub-content'));
+  renderProducts();
+}
+function changeVariantStock(productId, variantKey, delta) {
+  const p = appData.products.find(x => x.id === productId);
+  if (!p) return;
+  if (!p.variantStock) p.variantStock = {};
+  p.variantStock[variantKey] = Math.max(0, (p.variantStock[variantKey] || 0) + delta);
+  saveUserData();
+  renderProductManage(document.getElementById('others-sub-content'));
+  renderProducts();
+}
+function deleteProduct(productId) {
+  if (!confirm('この商品を削除しますか？')) return;
+  appData.products = (appData.products || []).filter(x => x.id !== productId);
+  cart = cart.filter(c => c.id !== productId);
+  saveUserData();
+  renderProductManage(document.getElementById('others-sub-content'));
+  renderProducts();
+  updateCartBar();
+}
 let cashManageTab='deposit'; let cashManageCounts={};
 function renderCashManage(content) {
   DENOMINATIONS.forEach(d=>{if(!cashManageCounts[d])cashManageCounts[d]=0;});
