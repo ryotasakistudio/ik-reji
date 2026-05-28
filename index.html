@@ -563,6 +563,8 @@ let selectedImageUrl = null;
 let editingProductId = null;
 let productVariants = [];
 let productVariantStock = {};
+let productVariantImageFiles = {};
+let productVariantImageUrls = {};
 let variantSelectProduct = null;
 let variantQtys = {};
 let cart = [];
@@ -763,6 +765,8 @@ function openAddProduct(productId = null) {
   selectedImageUrl = null;
   productVariants = [];
   productVariantStock = {};
+  productVariantImageFiles = {};
+  productVariantImageUrls = {};
   if (productId) {
     const p = appData.products.find(x => x.id === productId);
     if (p) {
@@ -770,6 +774,7 @@ function openAddProduct(productId = null) {
       selectedImageUrl = p.imageUrl || null;
       productVariants = JSON.parse(JSON.stringify(p.variants || []));
       productVariantStock = Object.assign({}, p.variantStock || {});
+      productVariantImageUrls = Object.assign({}, p.variantImages || {});
       document.getElementById('product-name-input').value = p.name;
       document.getElementById('product-price-input').value = p.price;
       document.getElementById('product-stock-input').value = p.stock;
@@ -801,6 +806,17 @@ function handleProductImageChange(input) {
     document.getElementById('product-image-preview').innerHTML = `<img src="${e.target.result}">`;
   };
   reader.readAsDataURL(selectedImageFile);
+}
+function handleVariantImageChange(key, input) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  productVariantImageFiles[key] = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    productVariantImageUrls[key] = e.target.result;
+    renderVariantSection();
+  };
+  reader.readAsDataURL(file);
 }
 function buildVariantKeys(variants) {
   const active = (variants || []).filter(v => v.options.length > 0);
@@ -835,12 +851,22 @@ function renderVariantSection() {
       </div>`).join('')}
   </div>`;
   if (hasVariants) {
-    html += `<div class="form-group"><label>在庫（バリアント別）</label>
+    html += `<div class="form-group"><label>在庫・画像（バリアント別）</label>
       <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:0.5rem 0.75rem">
-        ${keys.map(k => `<div class="variant-stock-row">
-          <span class="variant-stock-label">${k}</span>
-          <input type="number" class="variant-stock-input" value="${productVariantStock[k]||0}" min="0" inputmode="numeric" onchange="productVariantStock['${k}']=parseInt(this.value)||0">
-        </div>`).join('')}
+        ${keys.map((k, ki) => {
+          const imgSrc = productVariantImageUrls[k];
+          const imgEl = imgSrc
+            ? `<img src="${imgSrc}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;flex-shrink:0" onclick="document.getElementById('vimg_${ki}').click()">`
+            : `<button type="button" onclick="document.getElementById('vimg_${ki}').click()" style="width:32px;height:32px;border-radius:4px;border:1px dashed var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-camera" style="font-size:0.875rem;color:var(--text3)"></i></button>`;
+          return `<div class="variant-stock-row">
+            <span class="variant-stock-label">${k}</span>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              ${imgEl}
+              <input type="file" id="vimg_${ki}" accept="image/*" style="display:none" onchange="handleVariantImageChange('${k}',this)">
+              <input type="number" class="variant-stock-input" value="${productVariantStock[k]||0}" min="0" inputmode="numeric" onchange="productVariantStock['${k}']=parseInt(this.value)||0">
+            </div>
+          </div>`;
+        }).join('')}
       </div></div>`;
   }
   document.getElementById('product-variant-editor').innerHTML = html;
@@ -854,6 +880,8 @@ function addVariantType() {
 function removeVariantType(idx) {
   productVariants.splice(idx, 1);
   productVariantStock = {};
+  productVariantImageFiles = {};
+  productVariantImageUrls = {};
   renderVariantSection();
 }
 function addVariantOption(typeIdx) {
@@ -865,6 +893,8 @@ function addVariantOption(typeIdx) {
 function removeVariantOption(typeIdx, optIdx) {
   productVariants[typeIdx].options.splice(optIdx, 1);
   productVariantStock = {};
+  productVariantImageFiles = {};
+  productVariantImageUrls = {};
   renderVariantSection();
 }
 async function saveProduct() {
@@ -885,9 +915,27 @@ async function saveProduct() {
     const { data: urlData } = window.supabase.storage.from('product-images').getPublicUrl(path);
     imageUrl = urlData.publicUrl;
   }
+  const variantImages = {};
+  if (hasVariants) {
+    for (const k of keys) {
+      if (productVariantImageFiles[k]) {
+        const ext = productVariantImageFiles[k].name.split('.').pop().toLowerCase() || 'jpg';
+        const safeKey = k.replace(/\//g, '_');
+        const vpath = `${currentUser.id}/${productId}_v_${safeKey}.${ext}`;
+        const { error: ve } = await window.supabase.storage.from('product-images').upload(vpath, productVariantImageFiles[k], { upsert: true });
+        if (!ve) {
+          const { data: vurl } = window.supabase.storage.from('product-images').getPublicUrl(vpath);
+          variantImages[k] = vurl.publicUrl;
+        }
+      } else if (productVariantImageUrls[k] && !productVariantImageUrls[k].startsWith('data:')) {
+        variantImages[k] = productVariantImageUrls[k];
+      }
+    }
+  }
   const productData = { name, price, stock, emoji: selectedEmoji, imageUrl,
     variants: hasVariants ? productVariants.map(v => ({...v, options:[...v.options]})) : [],
-    variantStock: hasVariants ? {...productVariantStock} : {} };
+    variantStock: hasVariants ? {...productVariantStock} : {},
+    variantImages: hasVariants ? variantImages : {} };
   if (editingProductId) {
     const p = appData.products.find(x => x.id === editingProductId);
     if (p) Object.assign(p, productData);
@@ -937,8 +985,11 @@ function renderVariantSelectContent() {
     const qty = variantQtys[key] || 0;
     const minusDisabled = qty <= 0;
     const plusDisabled = stock <= 0 || qty >= stock;
+    const vImgUrl = p.variantImages?.[key];
+    const vImgHtml = vImgUrl ? `<img src="${vImgUrl}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '';
     return `
-      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.625rem 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:0.625rem;padding:0.625rem 0;border-bottom:1px solid var(--border)">
+        ${vImgHtml}
         <div style="flex:1;font-size:0.9375rem;font-weight:500">${key}</div>
         <div style="display:flex;align-items:center;gap:0.5rem">
           <button onclick="changeVariantQty(${keyIdx},-1)" ${minusDisabled?'disabled':''} style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:1.125rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:${minusDisabled?0.35:1}">−</button>
@@ -1023,7 +1074,7 @@ function renderCartItems() {
     if (!p) return '';
     return `<div class="checkout-item">
       <div class="checkout-item-left">
-        <div class="checkout-item-emoji">${p.imageUrl ? `<img src="${p.imageUrl}" style="width:1.5rem;height:1.5rem;object-fit:cover;border-radius:4px;display:block">` : p.emoji}</div>
+        <div class="checkout-item-emoji">${(c.variantKey&&p.variantImages?.[c.variantKey])||p.imageUrl ? `<img src="${(c.variantKey&&p.variantImages?.[c.variantKey])||p.imageUrl}" style="width:1.5rem;height:1.5rem;object-fit:cover;border-radius:4px;display:block">` : p.emoji}</div>
         <div>
           <div class="checkout-item-name">${p.name}${c.variantKey?`<span style="color:var(--text2);font-size:0.75rem"> (${c.variantKey})</span>`:''}</div>
           <div class="checkout-item-price">¥${p.price.toLocaleString()} × ${c.qty}</div>
