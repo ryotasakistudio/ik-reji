@@ -1404,7 +1404,16 @@ function confirmRefund(txId) {
   if (!confirm(`払い戻し金額: ¥${refundTotal.toLocaleString()}\nOKを押すと返品されます`)) return;
   appData.transactions.unshift({ id:'tx_'+Date.now(), type:'refund', method:tx.method, total:refundTotal, items:refundItems, originalTxId:txId, date:new Date().toISOString() });
   if (tx.method === 'cash') appData.regiFund = Math.max(0, (appData.regiFund||0) - refundTotal);
-  saveUserData(); closeModal('modal-refund'); renderTransactions(); showToast('返品が完了しました');
+  refundItems.forEach(item => {
+    const p = (appData.products||[]).find(x => x.id === item.productId);
+    if (!p) return;
+    if (item.variantKey && p.variantStock) {
+      p.variantStock[item.variantKey] = (p.variantStock[item.variantKey]||0) + item.qty;
+    } else {
+      p.stock = (p.stock||0) + item.qty;
+    }
+  });
+  saveUserData(); closeModal('modal-refund'); renderTransactions(); renderProducts(); showToast('返品が完了しました');
 }
 
 // ======= SETTLEMENT =======
