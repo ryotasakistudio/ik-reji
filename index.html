@@ -898,52 +898,59 @@ function removeVariantOption(typeIdx, optIdx) {
   renderVariantSection();
 }
 async function saveProduct() {
+  const btn = document.getElementById('save-product-btn');
+  if (btn.disabled) return;
   const name = document.getElementById('product-name-input').value.trim();
   const price = parseInt(document.getElementById('product-price-input').value);
   if (!name || isNaN(price)) { showToast('全項目を入力してください'); return; }
-  const keys = buildVariantKeys(productVariants);
-  const hasVariants = keys.length > 0;
-  const stock = hasVariants ? 0 : (parseInt(document.getElementById('product-stock-input').value) || 0);
-  const productId = editingProductId || ('p_' + Date.now());
-  let imageUrl = selectedImageUrl;
-  if (selectedImageFile) {
-    const ext = selectedImageFile.name.split('.').pop().toLowerCase() || 'jpg';
-    const path = `${currentUser.id}/${productId}.${ext}`;
-    const { error: uploadError } = await window.supabase.storage
-      .from('product-images').upload(path, selectedImageFile, { upsert: true });
-    if (uploadError) { showToast('画像のアップロードに失敗しました'); return; }
-    const { data: urlData } = window.supabase.storage.from('product-images').getPublicUrl(path);
-    imageUrl = urlData.publicUrl;
-  }
-  const variantImages = {};
-  if (hasVariants) {
-    for (const k of keys) {
-      if (productVariantImageFiles[k]) {
-        const ext = productVariantImageFiles[k].name.split('.').pop().toLowerCase() || 'jpg';
-        const safeKey = k.replace(/\//g, '_');
-        const vpath = `${currentUser.id}/${productId}_v_${safeKey}.${ext}`;
-        const { error: ve } = await window.supabase.storage.from('product-images').upload(vpath, productVariantImageFiles[k], { upsert: true });
-        if (!ve) {
-          const { data: vurl } = window.supabase.storage.from('product-images').getPublicUrl(vpath);
-          variantImages[k] = vurl.publicUrl;
+  btn.disabled = true;
+  try {
+    const keys = buildVariantKeys(productVariants);
+    const hasVariants = keys.length > 0;
+    const stock = hasVariants ? 0 : (parseInt(document.getElementById('product-stock-input').value) || 0);
+    const productId = editingProductId || ('p_' + Date.now());
+    let imageUrl = selectedImageUrl;
+    if (selectedImageFile) {
+      const ext = selectedImageFile.name.split('.').pop().toLowerCase() || 'jpg';
+      const path = `${currentUser.id}/${productId}.${ext}`;
+      const { error: uploadError } = await window.supabase.storage
+        .from('product-images').upload(path, selectedImageFile, { upsert: true });
+      if (uploadError) { showToast('画像のアップロードに失敗しました'); return; }
+      const { data: urlData } = window.supabase.storage.from('product-images').getPublicUrl(path);
+      imageUrl = urlData.publicUrl;
+    }
+    const variantImages = {};
+    if (hasVariants) {
+      for (const k of keys) {
+        if (productVariantImageFiles[k]) {
+          const ext = productVariantImageFiles[k].name.split('.').pop().toLowerCase() || 'jpg';
+          const safeKey = k.replace(/\//g, '_');
+          const vpath = `${currentUser.id}/${productId}_v_${safeKey}.${ext}`;
+          const { error: ve } = await window.supabase.storage.from('product-images').upload(vpath, productVariantImageFiles[k], { upsert: true });
+          if (!ve) {
+            const { data: vurl } = window.supabase.storage.from('product-images').getPublicUrl(vpath);
+            variantImages[k] = vurl.publicUrl;
+          }
+        } else if (productVariantImageUrls[k] && !productVariantImageUrls[k].startsWith('data:')) {
+          variantImages[k] = productVariantImageUrls[k];
         }
-      } else if (productVariantImageUrls[k] && !productVariantImageUrls[k].startsWith('data:')) {
-        variantImages[k] = productVariantImageUrls[k];
       }
     }
+    const productData = { name, price, stock, emoji: selectedEmoji, imageUrl,
+      variants: hasVariants ? productVariants.map(v => ({...v, options:[...v.options]})) : [],
+      variantStock: hasVariants ? {...productVariantStock} : {},
+      variantImages: hasVariants ? variantImages : {} };
+    if (editingProductId) {
+      const p = appData.products.find(x => x.id === editingProductId);
+      if (p) Object.assign(p, productData);
+    } else {
+      appData.products.push({ id: productId, favorite: false, ...productData });
+    }
+    saveUserData(); closeModal('modal-add-product'); renderProducts();
+    showToast(editingProductId ? '商品を更新しました' : '商品を追加しました');
+  } finally {
+    btn.disabled = false;
   }
-  const productData = { name, price, stock, emoji: selectedEmoji, imageUrl,
-    variants: hasVariants ? productVariants.map(v => ({...v, options:[...v.options]})) : [],
-    variantStock: hasVariants ? {...productVariantStock} : {},
-    variantImages: hasVariants ? variantImages : {} };
-  if (editingProductId) {
-    const p = appData.products.find(x => x.id === editingProductId);
-    if (p) Object.assign(p, productData);
-  } else {
-    appData.products.push({ id: productId, favorite: false, ...productData });
-  }
-  saveUserData(); closeModal('modal-add-product'); renderProducts();
-  showToast(editingProductId ? '商品を更新しました' : '商品を追加しました');
 }
 function toggleFav(e, id) {
   e.stopPropagation();
