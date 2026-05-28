@@ -1,0 +1,10 @@
+# 環境変数（APIキーを含むため絶対にコミットしない）
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+.idea/
