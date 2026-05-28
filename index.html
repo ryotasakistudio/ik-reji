@@ -357,6 +357,11 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div class="checkout-screen">
       <div class="keypad">
         <div class="keypad-display">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+            <span style="font-size:0.8125rem;color:var(--text2)">合計金額</span>
+            <span style="font-size:1.125rem;font-weight:700;color:var(--text1)" id="cash-total-display">¥0</span>
+          </div>
+          <div style="height:1px;background:var(--border);margin-bottom:0.625rem"></div>
           <div class="keypad-label">お預かり金額</div>
           <div class="keypad-value" id="cash-received-display">¥0</div>
           <div class="keypad-change" id="cash-change-display" style="display:none"></div>
@@ -1194,6 +1199,7 @@ function proceedPayment() {
 }
 function setupCashScreen() {
   const total = getCartTotal();
+  document.getElementById('cash-total-display').textContent = '¥' + total.toLocaleString();
   const quickAmts = [...new Set([1000,5000,10000,total])].sort((a,b)=>a-b);
   document.getElementById('quick-amounts').innerHTML = quickAmts.map(a =>
     `<button class="quick-btn" onclick="setQuickAmount(${a})">¥${a.toLocaleString()}</button>`
