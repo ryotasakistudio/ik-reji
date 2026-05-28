@@ -1354,6 +1354,7 @@ function openOthersSection(section) {
   if (section==='report') {
     renderOthersReport(content);
   } else if (section==='product-manage') {
+    initProductManageTemp();
     renderProductManage(content);
   } else if (section==='settle-history') {
     const settlements = appData.settlements||[];
@@ -1419,6 +1420,19 @@ function updateOthersDay(v) { othersReportDay = v; renderOthersReport(document.g
 function updateOthersMonth(v) { othersReportMonth = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
 function updateOthersMonthYear(v) { othersReportMonthYear = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
 function updateOthersYear(v) { othersReportYear = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
+let pmTempStock = {};
+let pmTempVariantStock = {};
+function initProductManageTemp() {
+  pmTempStock = {};
+  pmTempVariantStock = {};
+  (appData.products || []).forEach(p => {
+    if (p.variants && p.variants.length > 0) {
+      pmTempVariantStock[p.id] = Object.assign({}, p.variantStock || {});
+    } else {
+      pmTempStock[p.id] = p.stock || 0;
+    }
+  });
+}
 function renderProductManage(content) {
   const products = appData.products || [];
   if (!products.length) {
@@ -1434,7 +1448,7 @@ function renderProductManage(content) {
       const variantKeys = hasVariants ? buildVariantKeys(p.variants) : [];
       const stockHtml = hasVariants
         ? variantKeys.map(key => {
-            const s = (p.variantStock||{})[key] || 0;
+            const s = (pmTempVariantStock[p.id]||{})[key] || 0;
             return `<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.375rem">
               <span style="font-size:0.8125rem;color:var(--text2);min-width:4rem">${key}</span>
               <button onclick="changeVariantStock('${p.id}','${key}',-1)" ${s<=0?'disabled':''} style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;opacity:${s<=0?0.4:1}">−</button>
@@ -1444,8 +1458,8 @@ function renderProductManage(content) {
           }).join('')
         : `<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.375rem">
             <span style="font-size:0.8125rem;color:var(--text2)">在庫</span>
-            <button onclick="changeProductStock('${p.id}',-1)" ${(p.stock||0)<=0?'disabled':''} style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;opacity:${(p.stock||0)<=0?0.4:1}">−</button>
-            <span style="width:2rem;text-align:center;font-weight:600;font-size:0.9375rem">${p.stock||0}</span>
+            <button onclick="changeProductStock('${p.id}',-1)" ${(pmTempStock[p.id]||0)<=0?'disabled':''} style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;opacity:${(pmTempStock[p.id]||0)<=0?0.4:1}">−</button>
+            <span style="width:2rem;text-align:center;font-weight:600;font-size:0.9375rem">${pmTempStock[p.id]||0}</span>
             <button onclick="changeProductStock('${p.id}',1)" style="width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem">＋</button>
           </div>`;
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.875rem">
@@ -1462,30 +1476,36 @@ function renderProductManage(content) {
         </div>
       </div>`;
     }).join('')}
+    <button class="btn-primary" onclick="applyProductManageChanges()" style="margin-top:0.25rem">完了</button>
   </div>`;
 }
 function changeProductStock(productId, delta) {
-  const p = appData.products.find(x => x.id === productId);
-  if (!p) return;
-  p.stock = Math.max(0, (p.stock || 0) + delta);
-  saveUserData();
+  pmTempStock[productId] = Math.max(0, (pmTempStock[productId] || 0) + delta);
   renderProductManage(document.getElementById('others-sub-content'));
-  renderProducts();
 }
 function changeVariantStock(productId, variantKey, delta) {
-  const p = appData.products.find(x => x.id === productId);
-  if (!p) return;
-  if (!p.variantStock) p.variantStock = {};
-  p.variantStock[variantKey] = Math.max(0, (p.variantStock[variantKey] || 0) + delta);
-  saveUserData();
+  if (!pmTempVariantStock[productId]) pmTempVariantStock[productId] = {};
+  pmTempVariantStock[productId][variantKey] = Math.max(0, (pmTempVariantStock[productId][variantKey] || 0) + delta);
   renderProductManage(document.getElementById('others-sub-content'));
+}
+function applyProductManageChanges() {
+  (appData.products || []).forEach(p => {
+    if (p.variants && p.variants.length > 0) {
+      if (pmTempVariantStock[p.id]) p.variantStock = Object.assign({}, pmTempVariantStock[p.id]);
+    } else {
+      if (pmTempStock[p.id] !== undefined) p.stock = pmTempStock[p.id];
+    }
+  });
+  saveUserData();
   renderProducts();
+  showToast('在庫を更新しました');
 }
 function deleteProduct(productId) {
   if (!confirm('この商品を削除しますか？')) return;
   appData.products = (appData.products || []).filter(x => x.id !== productId);
   cart = cart.filter(c => c.id !== productId);
   saveUserData();
+  initProductManageTemp();
   renderProductManage(document.getElementById('others-sub-content'));
   renderProducts();
   updateCartBar();
