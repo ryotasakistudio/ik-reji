@@ -545,6 +545,40 @@ function saveUserData() {
 }
 
 // ======= AUTH =======
+function showAuthCard(name) {
+  ['login','register','complete'].forEach(n => {
+    document.getElementById('card-' + n).style.display = n === name ? 'block' : 'none';
+  });
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('register-error').style.display = 'none';
+}
+
+async function doRegister() {
+  const name = document.getElementById('register-name').value.trim();
+  const email = document.getElementById('register-email').value.trim();
+  const pw = document.getElementById('register-pw').value;
+  const err = document.getElementById('register-error');
+  err.style.display = 'none';
+
+  if (!name || !email || !pw) {
+    err.textContent = 'すべての項目を入力してください';
+    err.style.display = 'block';
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signUp({ email, password: pw });
+  if (error) {
+    err.textContent = error.message.includes('already')
+      ? 'このメールアドレスは既に登録されています'
+      : '通信エラーが発生しました。再度お試しください';
+    err.style.display = 'block';
+    return;
+  }
+
+  await supabase.from('profiles').insert({ id: data.user.id, artist_name: name });
+  showAuthCard('complete');
+}
+
 function doLogin() {
   const id = document.getElementById('login-id').value.trim();
   const pw = document.getElementById('login-pw').value;
