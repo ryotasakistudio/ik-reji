@@ -1225,16 +1225,23 @@ function updateCashDisplay() {
   document.getElementById('cash-received-display').textContent = '¥' + amt.toLocaleString();
   const changeEl = document.getElementById('cash-change-display');
   const btn = document.getElementById('cash-complete-btn');
-  if (amt > 0 && change >= 0) {
+  if (amt > 0 && change > 0) {
     changeEl.style.display='block'; changeEl.style.color='var(--green)';
     changeEl.textContent='お釣り: ¥'+change.toLocaleString();
     btn.disabled=false; btn.style.opacity='1';
+    btn.innerHTML=`お釣り：<span style="font-size:1.25em;font-weight:800">¥${change.toLocaleString()}</span>`;
+  } else if (amt > 0 && change === 0) {
+    changeEl.style.display='none';
+    btn.disabled=false; btn.style.opacity='1';
+    btn.textContent='会計完了';
   } else if (amt > 0) {
     changeEl.style.display='block'; changeEl.style.color='var(--red)';
     changeEl.textContent='不足: ¥'+Math.abs(change).toLocaleString();
     btn.disabled=true; btn.style.opacity='0.5';
+    btn.textContent='会計完了';
   } else {
     changeEl.style.display='none'; btn.disabled=true; btn.style.opacity='0.5';
+    btn.textContent='会計完了';
   }
 }
 function completeCashPayment() {
