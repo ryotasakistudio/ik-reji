@@ -230,19 +230,48 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 <div id="auth-screen">
   <div class="auth-logo">IK 物販レジ</div>
   <div class="auth-sub">Artist POS System</div>
-  <div class="auth-card">
+
+  <!-- ログインカード -->
+  <div class="auth-card" id="card-login">
     <h3>ログイン</h3>
     <div class="auth-error" id="auth-error">IDまたはパスワードが正しくありません</div>
     <div class="form-group">
-      <label>アーティストID</label>
-      <input type="text" id="login-id" placeholder="artist_id" autocomplete="username">
+      <label>メールアドレス</label>
+      <input type="email" id="login-id" placeholder="mail@example.com" autocomplete="email">
     </div>
     <div class="form-group">
       <label>パスワード</label>
       <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn-primary" onclick="doLogin()">ログイン</button>
-    <div class="auth-hint">アカウントがない場合は管理者にお問い合わせください</div>
+    <div class="auth-hint" style="cursor:pointer;color:var(--accent)" onclick="showAuthCard('register')">新規登録はこちら →</div>
+  </div>
+
+  <!-- 登録カード -->
+  <div class="auth-card" id="card-register" style="display:none">
+    <h3>新規登録</h3>
+    <div class="auth-error" id="register-error">エラーが発生しました</div>
+    <div class="form-group">
+      <label>アーティスト名</label>
+      <input type="text" id="register-name" placeholder="アーティスト名" autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="register-email" placeholder="mail@example.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input type="password" id="register-pw" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <button class="btn-primary" onclick="doRegister()">登録する</button>
+    <div class="auth-hint" style="cursor:pointer;color:var(--accent)" onclick="showAuthCard('login')">← ログインに戻る</div>
+  </div>
+
+  <!-- 登録完了カード -->
+  <div class="auth-card" id="card-complete" style="display:none">
+    <h3>確認メールを送信しました</h3>
+    <p style="font-size:0.875rem;color:var(--text2);margin-top:1rem;line-height:1.6">メールのリンクをクリックしてからログインしてください。</p>
+    <div class="auth-hint" style="cursor:pointer;color:var(--accent);margin-top:1.5rem" onclick="showAuthCard('login')">← ログインに戻る</div>
   </div>
 </div>
 
