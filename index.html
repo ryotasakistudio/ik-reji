@@ -395,6 +395,9 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
       <button class="tab-btn" onclick="switchSettleTab('settle')">精算</button>
     </div>
     <div id="settle-tab-report">
+      <div class="report-date-row">
+        <input type="date" id="report-date-input" class="report-select" onchange="selectReportDate(this.value)">
+      </div>
       <div class="report-section" id="daily-report-content"></div>
     </div>
     <div id="settle-tab-settle" style="display:none">
