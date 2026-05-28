@@ -1575,15 +1575,46 @@ function renderOthersReport(content) {
   const years = [...new Set([new Date().getFullYear(), ...(txs.map(t=>new Date(t.date).getFullYear()))])].sort((a,b)=>a-b);
   const calc = arr => ({ sales:arr.reduce((s,t)=>s+t.total,0), count:arr.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0) });
 
+  const calcPS = arr => {
+    const ps = {};
+    arr.forEach(tx => tx.items.forEach(item => {
+      if (!ps[item.productId]) ps[item.productId] = {name:item.name,qty:0,total:0,variants:{}};
+      ps[item.productId].qty += item.qty;
+      ps[item.productId].total += item.price*item.qty;
+      if (item.variantKey) ps[item.productId].variants[item.variantKey] = (ps[item.productId].variants[item.variantKey]||0) + item.qty;
+    }));
+    return ps;
+  };
+
+  const psHtml = ps => {
+    const entries = Object.values(ps);
+    if (!entries.length) return '<div style="color:var(--text3);text-align:center;padding:0.5rem 0;font-size:0.875rem">売上はありません</div>';
+    return entries.map(e => {
+      const hasV = Object.keys(e.variants).length > 0;
+      const vRows = hasV ? Object.entries(e.variants).map(([vk,vq]) =>
+        `<div class="stat-row" style="padding-left:1.25rem">
+          <span class="stat-label" style="font-size:0.8125rem;color:var(--text2)">${vk}</span>
+          <span class="stat-value" style="font-size:0.8125rem">${vq}個</span>
+        </div>`).join('') : '';
+      return `<div>
+        <div class="stat-row"><span class="stat-label">${e.name}</span><span class="stat-value">${e.qty}個 ¥${e.total.toLocaleString()}</span></div>
+        ${vRows}
+      </div>`;
+    }).join('');
+  };
+
   const dayDate = new Date(othersReportDay + 'T00:00:00');
   const dayTxs = txs.filter(t=>new Date(t.date).toDateString()===dayDate.toDateString()&&t.type!=='refund');
   const dayData = calc(dayTxs);
+  const dayPS = calcPS(dayTxs);
 
   const monthTxs = txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===othersReportMonth&&d.getFullYear()===othersReportMonthYear&&t.type!=='refund';});
   const monthData = calc(monthTxs);
+  const monthPS = calcPS(monthTxs);
 
   const yearTxs = txs.filter(t=>new Date(t.date).getFullYear()===othersReportYear&&t.type!=='refund');
   const yearData = calc(yearTxs);
+  const yearPS = calcPS(yearTxs);
 
   const yearOpts = years.map(y=>`<option value="${y}" ${y===othersReportYear?'selected':''}>${y}年</option>`).join('');
   const monthYearOpts = years.map(y=>`<option value="${y}" ${y===othersReportMonthYear?'selected':''}>${y}年</option>`).join('');
@@ -1597,6 +1628,9 @@ function renderOthersReport(content) {
       </div>
       <div class="stat-row"><span class="stat-label">売上金額</span><span class="stat-value">¥${dayData.sales.toLocaleString()}</span></div>
       <div class="stat-row"><span class="stat-label">売上数</span><span class="stat-value">${dayData.count}個</span></div>
+      <div class="divider"></div>
+      <div style="font-weight:600;font-size:0.8125rem;color:var(--text2);margin-bottom:0.25rem">商品別</div>
+      ${psHtml(dayPS)}
     </div>
     <div class="report-card">
       <div class="report-picker-row">
@@ -1606,6 +1640,9 @@ function renderOthersReport(content) {
       </div>
       <div class="stat-row"><span class="stat-label">売上金額</span><span class="stat-value">¥${monthData.sales.toLocaleString()}</span></div>
       <div class="stat-row"><span class="stat-label">売上数</span><span class="stat-value">${monthData.count}個</span></div>
+      <div class="divider"></div>
+      <div style="font-weight:600;font-size:0.8125rem;color:var(--text2);margin-bottom:0.25rem">商品別</div>
+      ${psHtml(monthPS)}
     </div>
     <div class="report-card">
       <div class="report-picker-row">
@@ -1614,6 +1651,9 @@ function renderOthersReport(content) {
       </div>
       <div class="stat-row"><span class="stat-label">売上金額</span><span class="stat-value">¥${yearData.sales.toLocaleString()}</span></div>
       <div class="stat-row"><span class="stat-label">売上数</span><span class="stat-value">${yearData.count}個</span></div>
+      <div class="divider"></div>
+      <div style="font-weight:600;font-size:0.8125rem;color:var(--text2);margin-bottom:0.25rem">商品別</div>
+      ${psHtml(yearPS)}
     </div>
   </div>`;
 }
