@@ -573,7 +573,11 @@ async function doRegister() {
     return;
   }
 
-  const { data, error } = await supabase.auth.signUp({ email, password: pw });
+  const { error } = await supabase.auth.signUp({
+    email,
+    password: pw,
+    options: { data: { artist_name: name } }
+  });
   if (error) {
     err.textContent = error.message.includes('already')
       ? 'このメールアドレスは既に登録されています'
@@ -582,7 +586,6 @@ async function doRegister() {
     return;
   }
 
-  await supabase.from('profiles').insert({ id: data.user.id, artist_name: name });
   showAuthCard('complete');
 }
 
