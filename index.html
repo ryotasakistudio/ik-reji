@@ -1550,8 +1550,8 @@ function openOthersSection(section) {
     initProductManageTemp();
     renderProductManage(content);
   } else if (section==='settle-history') {
-    const settleItems = (appData.settlements||[]).map(s=>({type:'settle',total:s.total,date:s.date}));
-    const depositItems = (appData.cashLedger||[]).filter(e=>e.type==='deposit').map(e=>({type:'deposit',total:e.amount,date:e.date}));
+    const settleItems = (appData.settlements||[]).map(s=>({type:'settle',total:s.total,date:s.date,counts:s.counts}));
+    const depositItems = (appData.cashLedger||[]).filter(e=>e.type==='deposit').map(e=>({type:'deposit',total:e.amount,date:e.date,counts:e.counts}));
     const allItems = [...settleItems,...depositItems].sort((a,b)=>new Date(b.date)-new Date(a.date));
     window._settleHistoryItems = allItems;
     content.innerHTML = allItems.length ? `<div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
