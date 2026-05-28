@@ -990,7 +990,7 @@ async function saveProduct() {
       for (const k of keys) {
         if (productVariantImageFiles[k]) {
           const ext = productVariantImageFiles[k].name.split('.').pop().toLowerCase() || 'jpg';
-          const safeKey = k.replace(/\//g, '_');
+          const safeKey = k.replace(/[^a-zA-Z0-9._-]/g, c => '_' + c.charCodeAt(0).toString(16));
           const vpath = `${currentUser.id}/${productId}_v_${safeKey}.${ext}`;
           const { error: ve } = await window.supabase.storage.from('product-images').upload(vpath, productVariantImageFiles[k], { upsert: true });
           if (ve) {
