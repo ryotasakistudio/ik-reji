@@ -218,7 +218,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.js"></script>
 <script>
-  const supabase = window.supabase.createClient(
+  window.supabase = window.supabase.createClient(
     'https://icygjaletunwftlqgtpd.supabase.co',
     'sb_publishable_Xp37bDiRh3RPFMkzBUxbUg_pA8eLsrm'
   );
