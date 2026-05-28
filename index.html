@@ -598,7 +598,7 @@ async function loadUserData(userId) {
     .eq('user_id', userId)
     .maybeSingle();
   if (data?.content) return data.content;
-  const initial = { products:[], transactions:[], settlements:[], cashLedger:[], regiFund:0 };
+  const initial = { products:[], transactions:[], settlements:[], cashLedger:[], regiFund:0, regiFundCounts:{} };
   await supabase.from('app_data').upsert({ user_id: userId, content: initial });
   return initial;
 }
@@ -1504,6 +1504,7 @@ function doSettle() {
   appData.settlements = appData.settlements||[];
   appData.settlements.unshift({ id:'set_'+Date.now(), total, counts:{...settleCounts}, date:new Date().toISOString() });
   appData.regiFund = total;
+  appData.regiFundCounts = {...settleCounts};
   saveUserData(); buildSettlementInputs(); showToast('精算が完了しました');
 }
 
@@ -1734,9 +1735,8 @@ function renderCashManage(content) {
       </div>
       <button class="btn-accent" onclick="doCashDeposit()" style="width:100%;padding:1rem">入金</button>`;
   } else if (cashSetupMode==='view') {
-    const lastSetup = (appData.cashLedger||[]).find(e=>e.type==='setup');
     const total = appData.regiFund||0;
-    const counts = lastSetup?.counts;
+    const counts = appData.regiFundCounts && Object.keys(appData.regiFundCounts).length ? appData.regiFundCounts : null;
     const denomRows = counts ? DENOMINATIONS.map(d=>{
       const cnt=counts[d]||0;
       if(!cnt)return '';
@@ -1787,9 +1787,9 @@ function switchCashTab(tab) {
 }
 function startCashSetupEdit() {
   if (!confirm('現在のレジ金設定を上書きしますがよろしいですか？')) return;
-  const lastSetup=(appData.cashLedger||[]).find(e=>e.type==='setup');
+  const src=appData.regiFundCounts||{};
   cashManageCounts={};
-  DENOMINATIONS.forEach(d=>{ cashManageCounts[d]=lastSetup?.counts?.[d]||0; });
+  DENOMINATIONS.forEach(d=>{ cashManageCounts[d]=src[d]||0; });
   cashSetupMode='edit';
   renderCashManage(document.getElementById('others-sub-content'));
 }
@@ -1805,6 +1805,9 @@ function doCashDeposit() {
   const total=DENOMINATIONS.reduce((s,d)=>s+d*(cashManageCounts[d]||0),0);
   if(!total){showToast('金額を入力してください');return;}
   appData.regiFund=Math.max(0,(appData.regiFund||0)-total);
+  const cur=Object.assign({},appData.regiFundCounts||{});
+  DENOMINATIONS.forEach(d=>{ cur[d]=Math.max(0,(cur[d]||0)-(cashManageCounts[d]||0)); });
+  appData.regiFundCounts=cur;
   appData.cashLedger=appData.cashLedger||[];
   appData.cashLedger.unshift({type:'deposit',amount:total,date:new Date().toISOString(),counts:{...cashManageCounts}});
   saveUserData();
@@ -1816,6 +1819,7 @@ function doSetRegiFund() {
   const total=DENOMINATIONS.reduce((s,d)=>s+d*(cashManageCounts[d]||0),0);
   if(!total){showToast('金額を入力してください');return;}
   appData.regiFund=total;
+  appData.regiFundCounts={...cashManageCounts};
   appData.cashLedger=appData.cashLedger||[];
   appData.cashLedger.unshift({type:'setup',amount:total,date:new Date().toISOString(),counts:{...cashManageCounts}});
   saveUserData();
