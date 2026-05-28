@@ -635,15 +635,21 @@ async function doRegister() {
   }
 
   const email = artistId + '@ik-reji.app';
-  const { error } = await supabase.auth.signUp({
-    email,
-    password: pw,
-    options: { data: { artist_name: name } }
-  });
+  const { data: signUpData, error } = await supabase.auth.signUp({ email, password: pw });
   if (error) {
     err.textContent = error.message.includes('already')
-      ? 'このメールアドレスは既に登録されています'
+      ? 'このIDは既に使用されています'
       : '通信エラーが発生しました。再度お試しください';
+    err.style.display = 'block';
+    return;
+  }
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({ id: signUpData.user.id, artist_name: name });
+  if (profileError) {
+    await supabase.auth.signOut();
+    err.textContent = '登録に失敗しました。再度お試しください';
     err.style.display = 'block';
     return;
   }
@@ -652,8 +658,7 @@ async function doRegister() {
   const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password: pw });
   if (loginError) { showAuthCard('login'); return; }
 
-  const { data: profile } = await supabase.from('profiles').select('artist_name').eq('id', loginData.user.id).single();
-  currentUser = { id: loginData.user.id, name: profile?.artist_name || email };
+  currentUser = { id: loginData.user.id, name };
   appData = await loadUserData(loginData.user.id);
 
   document.getElementById('topbar-artist').textContent = currentUser.name;
