@@ -1529,9 +1529,14 @@ function renderProductManage(content) {
             <div style="color:var(--accent);font-size:0.875rem;margin-bottom:0.125rem">¥${p.price.toLocaleString()}</div>
             ${stockHtml}
           </div>
-          <button onclick="deleteProduct('${p.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0.25rem;flex-shrink:0">
-            <i class="ti ti-trash" style="font-size:1.25rem"></i>
-          </button>
+          <div style="display:flex;flex-direction:column;gap:0.25rem;flex-shrink:0">
+            <button onclick="openAddProduct('${p.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0.25rem">
+              <i class="ti ti-pencil" style="font-size:1.25rem"></i>
+            </button>
+            <button onclick="deleteProduct('${p.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0.25rem">
+              <i class="ti ti-trash" style="font-size:1.25rem"></i>
+            </button>
+          </div>
         </div>
       </div>`;
     }).join('')}
