@@ -1416,9 +1416,10 @@ function renderDailyReport() {
   const d = sel;
   const productSales = {};
   todayTxs.forEach(tx => tx.items.forEach(item => {
-    if (!productSales[item.productId]) productSales[item.productId] = {name:item.name,emoji:item.emoji,qty:0,total:0};
+    if (!productSales[item.productId]) productSales[item.productId] = {productId:item.productId,name:item.name,emoji:item.emoji,qty:0,total:0,variants:{}};
     productSales[item.productId].qty += item.qty;
     productSales[item.productId].total += item.price*item.qty;
+    if (item.variantKey) productSales[item.productId].variants[item.variantKey] = (productSales[item.productId].variants[item.variantKey]||0) + item.qty;
   }));
   document.getElementById('daily-report-content').innerHTML = `
     <div class="report-card">
@@ -1433,8 +1434,19 @@ function renderDailyReport() {
     <div class="report-card">
       <h3>商品別売上</h3>
       ${Object.values(productSales).length ? Object.values(productSales).map(ps => {
-        const prod = (appData.products||[]).find(p=>p.name===ps.name);
-        return `<div class="stat-row"><span class="stat-label">${ps.emoji} ${ps.name}</span><span class="stat-value">${ps.qty}個 ¥${ps.total.toLocaleString()} <span style="color:var(--text3);font-weight:400">在庫:${prod?prod.stock:'?'}</span></span></div>`;
+        const prod = (appData.products||[]).find(p=>p.id===ps.productId);
+        const hasVariants = Object.keys(ps.variants).length > 0;
+        const variantRows = hasVariants ? Object.entries(ps.variants).map(([vk,vQty]) => {
+          const vStock = prod?.variantStock?.[vk] ?? '?';
+          return `<div class="stat-row" style="padding-left:1.25rem;border-top:none">
+            <span class="stat-label" style="font-size:0.8125rem;color:var(--text2)">${vk}</span>
+            <span class="stat-value" style="font-size:0.8125rem">${vQty}個 <span style="color:var(--text3);font-weight:400">在庫:${vStock}</span></span>
+          </div>`;
+        }).join('') : '';
+        return `<div>
+          <div class="stat-row"><span class="stat-label">${ps.emoji} ${ps.name}</span><span class="stat-value">${ps.qty}個 ¥${ps.total.toLocaleString()}${!hasVariants?` <span style="color:var(--text3);font-weight:400">在庫:${prod?prod.stock:'?'}</span>`:''}</span></div>
+          ${variantRows}
+        </div>`;
       }).join('') : '<div style="color:var(--text3);text-align:center;padding:1rem">売上はありません</div>'}
     </div>`;
 }
