@@ -535,6 +535,11 @@ let cart = [];
 let selectedPayMethod = null;
 let cashInput = '';
 let txFilter = 'all';
+let reportSelectedDate = new Date().toISOString().split('T')[0];
+let othersReportDay = new Date().toISOString().split('T')[0];
+let othersReportMonth = new Date().getMonth();
+let othersReportMonthYear = new Date().getFullYear();
+let othersReportYear = new Date().getFullYear();
 
 // ======= STORAGE (Supabase) =======
 async function loadUserData(userId) {
