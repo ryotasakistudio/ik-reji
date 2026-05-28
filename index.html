@@ -63,6 +63,8 @@ body{font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;backgrou
 .products-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;padding:1rem}
 .product-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s;position:relative}
 .product-card:active{transform:scale(0.97)}
+.product-card.drag-over{box-shadow:0 0 0 2px var(--accent)!important;transform:none!important}
+.product-card.dragging{opacity:0.3!important;transform:none!important}
 .product-img{width:100%;height:110px;object-fit:cover;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:2.5rem}
 .product-info{padding:0.625rem 0.75rem}
 .product-name{font-size:0.8125rem;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:0.25rem}
@@ -734,6 +736,60 @@ function renderProducts() {
   const favs = (appData.products || []).filter(p => p.favorite);
   renderProductGrid('products-grid-favorites', favs);
 }
+let _dragId=null,_dragOverId=null,_dragClone=null,_dragStarted=false,_lpt=null,_tox=0,_toy=0;
+function initProductDragDrop(){
+  const grid=document.getElementById('products-grid-library');
+  if(!grid)return;
+  grid.querySelectorAll('.product-card[data-id]').forEach(card=>{
+    const pid=card.dataset.id;
+    card.draggable=true;
+    card.ondragstart=e=>{_dragId=pid;e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0);};
+    card.ondragend=()=>{card.classList.remove('dragging');cleanupDrag();};
+    card.ondragover=e=>{e.preventDefault();if(pid!==_dragId){clearDragOver(grid);card.classList.add('drag-over');_dragOverId=pid;}};
+    card.ondrop=e=>{e.preventDefault();finishReorder();cleanupDrag();renderProducts();};
+    card.addEventListener('touchstart',e=>{
+      _tox=e.touches[0].clientX;_toy=e.touches[0].clientY;_dragStarted=false;
+      _lpt=setTimeout(()=>{
+        _dragId=pid;_dragStarted=true;
+        const r=card.getBoundingClientRect();
+        _dragClone=card.cloneNode(true);
+        Object.assign(_dragClone.style,{position:'fixed',zIndex:'9999',width:r.width+'px',height:r.height+'px',top:r.top+'px',left:r.left+'px',opacity:'.85',pointerEvents:'none',transform:'scale(1.05)',boxShadow:'0 8px 24px rgba(0,0,0,.25)',transition:'none',overflow:'hidden',borderRadius:getComputedStyle(card).borderRadius});
+        document.body.appendChild(_dragClone);
+        card.classList.add('dragging');
+      },500);
+    },{passive:true});
+    card.addEventListener('touchmove',e=>{
+      if(!_dragStarted){if(Math.abs(e.touches[0].clientX-_tox)>8||Math.abs(e.touches[0].clientY-_toy)>8)clearTimeout(_lpt);return;}
+      e.preventDefault();
+      const t=e.touches[0];
+      if(_dragClone){const w=parseFloat(_dragClone.style.width),h=parseFloat(_dragClone.style.height);_dragClone.style.left=(t.clientX-w/2)+'px';_dragClone.style.top=(t.clientY-h/2)+'px';}
+      if(_dragClone)_dragClone.style.display='none';
+      const el=document.elementFromPoint(t.clientX,t.clientY);
+      if(_dragClone)_dragClone.style.display='';
+      const tc=el?.closest?.('#products-grid-library .product-card[data-id]');
+      if(tc&&tc.dataset.id!==_dragId){clearDragOver(grid);tc.classList.add('drag-over');_dragOverId=tc.dataset.id;}
+    },{passive:false});
+    card.addEventListener('touchend',e=>{
+      clearTimeout(_lpt);
+      if(_dragStarted){e.preventDefault();finishReorder();cleanupDrag();if(_dragId!==_dragOverId&&_dragOverId)renderProducts();}
+      _dragStarted=false;
+    },{passive:false});
+  });
+}
+function clearDragOver(grid){grid.querySelectorAll('.drag-over').forEach(c=>c.classList.remove('drag-over'));}
+function finishReorder(){
+  if(!_dragId||!_dragOverId||_dragId===_dragOverId)return;
+  const ps=appData.products,fi=ps.findIndex(p=>p.id===_dragId),ti=ps.findIndex(p=>p.id===_dragOverId);
+  if(fi===-1||ti===-1)return;
+  const[item]=ps.splice(fi,1);ps.splice(ti,0,item);
+  saveUserData();
+}
+function cleanupDrag(){
+  if(_dragClone){_dragClone.remove();_dragClone=null;}
+  const g=document.getElementById('products-grid-library');
+  if(g)g.querySelectorAll('.product-card').forEach(c=>c.classList.remove('drag-over','dragging'));
+  _dragId=null;_dragOverId=null;
+}
 function renderProductGrid(containerId, products) {
   const el = document.getElementById(containerId);
   if (!products.length) {
@@ -742,10 +798,11 @@ function renderProductGrid(containerId, products) {
   }
   el.innerHTML = products.map(p => {
     const qty = cart.filter(c => c.id === p.id).reduce((s,c) => s+c.qty, 0);
-    const displayStock = (p.variants && p.variants.length > 0)
-      ? Object.values(p.variantStock||{}).reduce((s,v)=>s+v,0)
-      : p.stock;
-    return `<div class="product-card" onclick="addToCart('${p.id}')">
+    const hasVariants = p.variants && p.variants.length > 0;
+    const stockDisplay = hasVariants
+      ? buildVariantKeys(p.variants).map(k => `<span style="white-space:nowrap">${k}:${(p.variantStock||{})[k]||0}</span>`).join('')
+      : `在庫: ${p.stock}点`;
+    return `<div class="product-card" data-id="${p.id}" onclick="addToCart('${p.id}')">
       <div class="product-img">${p.imageUrl ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover;display:block">` : p.emoji}</div>
       ${qty > 0 ? `<div class="badge-cart">${qty}</div>` : ''}
       <button class="product-fav-btn ${p.favorite?'active':''}" onclick="toggleFav(event,'${p.id}')">
@@ -754,10 +811,11 @@ function renderProductGrid(containerId, products) {
       <div class="product-info">
         <div class="product-name">${p.name}</div>
         <div class="product-price">¥${p.price.toLocaleString()}</div>
-        <div class="product-stock">在庫: ${displayStock}点</div>
+        <div class="product-stock" style="${hasVariants?'display:flex;flex-wrap:wrap;gap:0.15rem 0.4rem':''}">${stockDisplay}</div>
       </div>
     </div>`;
   }).join('');
+  if (containerId === 'products-grid-library') initProductDragDrop();
 }
 function openAddProduct(productId = null) {
   editingProductId = productId;
