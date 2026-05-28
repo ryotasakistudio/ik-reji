@@ -1045,14 +1045,17 @@ function switchSettleTab(tab) {
   if (tab==='report') renderDailyReport();
 }
 function renderDailyReport() {
-  const today = new Date().toDateString();
-  const todayTxs = (appData.transactions||[]).filter(t => new Date(t.date).toDateString()===today && t.type!=='refund');
-  const refunds = (appData.transactions||[]).filter(t => new Date(t.date).toDateString()===today && t.type==='refund');
+  const inp = document.getElementById('report-date-input');
+  if (inp) inp.value = reportSelectedDate;
+  const sel = new Date(reportSelectedDate + 'T00:00:00');
+  const selStr = sel.toDateString();
+  const todayTxs = (appData.transactions||[]).filter(t => new Date(t.date).toDateString()===selStr && t.type!=='refund');
+  const refunds = (appData.transactions||[]).filter(t => new Date(t.date).toDateString()===selStr && t.type==='refund');
   const cashTotal = todayTxs.filter(t=>t.method==='cash').reduce((s,t)=>s+t.total,0);
   const paypayTotal = todayTxs.filter(t=>t.method==='paypay').reduce((s,t)=>s+t.total,0);
   const refundTotal = refunds.reduce((s,t)=>s+t.total,0);
   const netTotal = cashTotal + paypayTotal - refundTotal;
-  const d = new Date();
+  const d = sel;
   const productSales = {};
   todayTxs.forEach(tx => tx.items.forEach(item => {
     if (!productSales[item.productId]) productSales[item.productId] = {name:item.name,emoji:item.emoji,qty:0,total:0};
@@ -1061,7 +1064,7 @@ function renderDailyReport() {
   }));
   document.getElementById('daily-report-content').innerHTML = `
     <div class="report-card">
-      <h3>本日の売上（${d.getMonth()+1}月${d.getDate()}日）</h3>
+      <h3>${d.getMonth()+1}月${d.getDate()}日の売上</h3>
       <div class="big-stat"><div class="big-stat-value">¥${netTotal.toLocaleString()}</div><div class="big-stat-label">純売上（返金除く）</div></div>
       <div class="divider"></div>
       <div class="stat-row"><span class="stat-label">現金</span><span class="stat-value">¥${cashTotal.toLocaleString()}</span></div>
@@ -1073,8 +1076,12 @@ function renderDailyReport() {
       ${Object.values(productSales).length ? Object.values(productSales).map(ps => {
         const prod = (appData.products||[]).find(p=>p.name===ps.name);
         return `<div class="stat-row"><span class="stat-label">${ps.emoji} ${ps.name}</span><span class="stat-value">${ps.qty}個 ¥${ps.total.toLocaleString()} <span style="color:var(--text3);font-weight:400">在庫:${prod?prod.stock:'?'}</span></span></div>`;
-      }).join('') : '<div style="color:var(--text3);text-align:center;padding:1rem">本日の売上はありません</div>'}
+      }).join('') : '<div style="color:var(--text3);text-align:center;padding:1rem">売上はありません</div>'}
     </div>`;
+}
+function selectReportDate(v) {
+  reportSelectedDate = v;
+  renderDailyReport();
 }
 const DENOMINATIONS = [10000,5000,1000,500,100,50,10,1];
 let settleCounts = {};
