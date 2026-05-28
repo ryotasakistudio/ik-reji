@@ -687,9 +687,16 @@ async function doLogin() {
     .from('profiles')
     .select('artist_name')
     .eq('id', data.user.id)
-    .single();
+    .maybeSingle();
 
-  currentUser = { id: data.user.id, name: profile?.artist_name || email };
+  if (!profile?.artist_name) {
+    await supabase.auth.signOut();
+    err.textContent = 'そのアーティストは存在しません';
+    err.style.display = 'block';
+    return;
+  }
+
+  currentUser = { id: data.user.id, name: profile.artist_name };
   appData = await loadUserData(data.user.id);
 
   document.getElementById('topbar-artist').textContent = currentUser.name;
