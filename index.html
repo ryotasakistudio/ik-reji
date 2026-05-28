@@ -1267,6 +1267,7 @@ function recordTransaction(method, received, change) {
     }
   });
   appData.transactions.unshift({ id:'tx_'+Date.now(), type:'sale', method, total, received, change, items, date:new Date().toISOString() });
+  if (method === 'cash') appData.regiFund = (appData.regiFund||0) + total;
   cart = []; selectedPayMethod = null;
   saveUserData(); renderProducts();
 }
@@ -1395,6 +1396,7 @@ function confirmRefund(txId) {
   }
   if (!confirm(`払い戻し金額: ¥${refundTotal.toLocaleString()}\nOKを押すと返品されます`)) return;
   appData.transactions.unshift({ id:'tx_'+Date.now(), type:'refund', method:tx.method, total:refundTotal, items:refundItems, originalTxId:txId, date:new Date().toISOString() });
+  if (tx.method === 'cash') appData.regiFund = Math.max(0, (appData.regiFund||0) - refundTotal);
   saveUserData(); closeModal('modal-refund'); renderTransactions(); showToast('返品が完了しました');
 }
 
