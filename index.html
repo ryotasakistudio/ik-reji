@@ -1294,7 +1294,7 @@ function renderTransactions() {
     const badge = isRefund ? `<span class="tx-badge badge-refund">返品</span>` :
       tx.method==='cash' ? `<span class="tx-badge badge-cash">現金</span>` : `<span class="tx-badge badge-paypay">PayPay</span>`;
     const amtStr = isRefund ? `-¥${tx.total.toLocaleString()}` : `¥${tx.total.toLocaleString()}`;
-    const products = tx.items.map(i => `${i.emoji}${i.name}${i.variantKey?`(${i.variantKey})`:''} ×${i.qty}`).join(' / ');
+    const products = tx.items.map(i => `${i.name}${i.variantKey?`(${i.variantKey})`:''} ×${i.qty}`).join(' / ');
     return `<div class="tx-item ${isRefund?'refund':''}" onclick="openTxDetail('${tx.id}')">
       <div class="tx-item-header"><span class="tx-amount ${isRefund?'negative':''}">${amtStr}</span>${badge}</div>
       <div class="tx-meta">${dateStr}</div>
@@ -1329,7 +1329,7 @@ function openTxDetail(txId) {
     <div style="font-size:0.8125rem;font-weight:600;color:var(--text2);margin-bottom:0.5rem">商品</div>
     <div style="background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:1rem">
       ${tx.items.map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;border-bottom:1px solid var(--border)">
-        <span>${i.emoji} ${i.name}${i.variantKey?` (${i.variantKey})`:''} × ${i.qty}</span>
+        <span>${i.name}${i.variantKey?` (${i.variantKey})`:''} × ${i.qty}</span>
         <span style="font-weight:600">¥${(i.price*i.qty).toLocaleString()}</span>
       </div>`).join('')}
     </div>
@@ -1361,7 +1361,7 @@ function openRefund(txId) {
             <div class="refund-check ${window._selectedProducts.length===tx.items.length?'checked':''}"><i class="ti ti-check" style="font-size:0.875rem"></i></div>
           </div>
           ${tx.items.map((item,idx)=>`<div class="refund-product-item" onclick="window._toggleItem(${idx})">
-            <div>${item.emoji} ${item.name}${item.variantKey?` (${item.variantKey})`:''} × ${item.qty} <span style="color:var(--text2)">¥${(item.price*item.qty).toLocaleString()}</span></div>
+            <div>${item.name}${item.variantKey?` (${item.variantKey})`:''} × ${item.qty} <span style="color:var(--text2)">¥${(item.price*item.qty).toLocaleString()}</span></div>
             <div class="refund-check ${window._selectedProducts.includes(idx)?'checked':''}"><i class="ti ti-check" style="font-size:0.875rem"></i></div>
           </div>`).join('')}
         </div>`:
@@ -1444,7 +1444,7 @@ function renderDailyReport() {
           </div>`;
         }).join('') : '';
         return `<div>
-          <div class="stat-row"><span class="stat-label">${ps.emoji} ${ps.name}</span><span class="stat-value">${ps.qty}個 ¥${ps.total.toLocaleString()}${!hasVariants?` <span style="color:var(--text3);font-weight:400">在庫:${prod?prod.stock:'?'}</span>`:''}</span></div>
+          <div class="stat-row"><span class="stat-label">${ps.name}</span><span class="stat-value">${ps.qty}個 ¥${ps.total.toLocaleString()}${!hasVariants?` <span style="color:var(--text3);font-weight:400">在庫:${prod?prod.stock:'?'}</span>`:''}</span></div>
           ${variantRows}
         </div>`;
       }).join('') : '<div style="color:var(--text3);text-align:center;padding:1rem">売上はありません</div>'}
