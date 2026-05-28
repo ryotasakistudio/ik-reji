@@ -1127,22 +1127,7 @@ function openOthersSection(section) {
   document.getElementById('others-sub-title').textContent = titles[section]||section;
   const content = document.getElementById('others-sub-content');
   if (section==='report') {
-    const txs = appData.transactions||[];
-    const d = new Date();
-    const todayStr = d.toDateString();
-    const calc = arr => ({ sales:arr.reduce((s,t)=>s+t.total,0), count:arr.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0) });
-    const todayTxs = txs.filter(t=>new Date(t.date).toDateString()===todayStr&&t.type!=='refund');
-    const monthTxs = txs.filter(t=>{const dd=new Date(t.date);return dd.getMonth()===d.getMonth()&&dd.getFullYear()===d.getFullYear()&&t.type!=='refund';});
-    const yearTxs = txs.filter(t=>new Date(t.date).getFullYear()===d.getFullYear()&&t.type!=='refund');
-    const renderCard = (title, data) => `<div class="report-card"><h3>${title}</h3>
-      <div class="stat-row"><span class="stat-label">売上金額</span><span class="stat-value">¥${data.sales.toLocaleString()}</span></div>
-      <div class="stat-row"><span class="stat-label">売上数</span><span class="stat-value">${data.count}個</span></div>
-    </div>`;
-    content.innerHTML = `<div class="report-section">
-      ${renderCard(`本日 (${d.getMonth()+1}/${d.getDate()})`, calc(todayTxs))}
-      ${renderCard(`${d.getMonth()+1}月`, calc(monthTxs))}
-      ${renderCard(`${d.getFullYear()}年`, calc(yearTxs))}
-    </div>`;
+    renderOthersReport(content);
   } else if (section==='settle-history') {
     const settlements = appData.settlements||[];
     content.innerHTML = settlements.length ? `<div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
@@ -1156,6 +1141,57 @@ function openOthersSection(section) {
   }
   showScreen('others-sub');
 }
+function renderOthersReport(content) {
+  const txs = appData.transactions||[];
+  const years = [...new Set([new Date().getFullYear(), ...(txs.map(t=>new Date(t.date).getFullYear()))])].sort((a,b)=>a-b);
+  const calc = arr => ({ sales:arr.reduce((s,t)=>s+t.total,0), count:arr.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0) });
+
+  const dayDate = new Date(othersReportDay + 'T00:00:00');
+  const dayTxs = txs.filter(t=>new Date(t.date).toDateString()===dayDate.toDateString()&&t.type!=='refund');
+  const dayData = calc(dayTxs);
+
+  const monthTxs = txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===othersReportMonth&&d.getFullYear()===othersReportMonthYear&&t.type!=='refund';});
+  const monthData = calc(monthTxs);
+
+  const yearTxs = txs.filter(t=>new Date(t.date).getFullYear()===othersReportYear&&t.type!=='refund');
+  const yearData = calc(yearTxs);
+
+  const yearOpts = years.map(y=>`<option value="${y}" ${y===othersReportYear?'selected':''}>${y}年</option>`).join('');
+  const monthYearOpts = years.map(y=>`<option value="${y}" ${y===othersReportMonthYear?'selected':''}>${y}年</option>`).join('');
+  const monthOpts = Array.from({length:12},(_,i)=>`<option value="${i}" ${i===othersReportMonth?'selected':''}>${i+1}月</option>`).join('');
+
+  content.innerHTML = `<div class="report-section">
+    <div class="report-card">
+      <div class="report-picker-row">
+        <span class="report-picker-label">日別</span>
+        <input type="date" class="report-select" style="flex:1" value="${othersReportDay}" onchange="updateOthersDay(this.value)">
+      </div>
+      <div class="stat-row"><span class="stat-label">売上金額</span><span class="stat-value">¥${dayData.sales.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="stat-label">売上数</span><span class="stat-value">${dayData.count}個</span></div>
+    </div>
+    <div class="report-card">
+      <div class="report-picker-row">
+        <span class="report-picker-label">月別</span>
+        <select class="report-select" onchange="updateOthersMonthYear(this.value)">${monthYearOpts}</select>
+        <select class="report-select" onchange="updateOthersMonth(this.value)">${monthOpts}</select>
+      </div>
+      <div class="stat-row"><span class="stat-label">売上金額</span><span class="stat-value">¥${monthData.sales.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="stat-label">売上数</span><span class="stat-value">${monthData.count}個</span></div>
+    </div>
+    <div class="report-card">
+      <div class="report-picker-row">
+        <span class="report-picker-label">年別</span>
+        <select class="report-select" style="flex:1" onchange="updateOthersYear(this.value)">${yearOpts}</select>
+      </div>
+      <div class="stat-row"><span class="stat-label">売上金額</span><span class="stat-value">¥${yearData.sales.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="stat-label">売上数</span><span class="stat-value">${yearData.count}個</span></div>
+    </div>
+  </div>`;
+}
+function updateOthersDay(v) { othersReportDay = v; renderOthersReport(document.getElementById('others-sub-content')); }
+function updateOthersMonth(v) { othersReportMonth = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
+function updateOthersMonthYear(v) { othersReportMonthYear = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
+function updateOthersYear(v) { othersReportYear = parseInt(v); renderOthersReport(document.getElementById('others-sub-content')); }
 let cashManageTab='deposit'; let cashManageCounts={};
 function renderCashManage(content) {
   DENOMINATIONS.forEach(d=>{if(!cashManageCounts[d])cashManageCounts[d]=0;});
