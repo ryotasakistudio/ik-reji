@@ -864,7 +864,7 @@ function renderVariantSection() {
             <div style="display:flex;align-items:center;gap:0.5rem">
               ${imgEl}
               <input type="file" id="vimg_${ki}" accept="image/*" style="display:none" onchange="handleVariantImageChange('${k}',this)">
-              <input type="number" class="variant-stock-input" value="${productVariantStock[k]||0}" min="0" inputmode="numeric" onchange="productVariantStock['${k}']=parseInt(this.value)||0">
+              <input type="number" class="variant-stock-input" value="${productVariantStock[k]||0}" min="0" inputmode="numeric" oninput="productVariantStock['${k}']=parseInt(this.value)||0">
             </div>
           </div>`;
         }).join('')}
@@ -888,8 +888,15 @@ function removeVariantType(idx) {
 function addVariantOption(typeIdx) {
   const opt = prompt('オプション名を入力（例: S、赤）');
   if (!opt || !opt.trim()) return;
+  const firstTime = buildVariantKeys(productVariants).length === 0;
   productVariants[typeIdx].options.push(opt.trim());
   renderVariantSection();
+  if (firstTime) {
+    setTimeout(() => {
+      const editor = document.getElementById('product-variant-editor');
+      if (editor) editor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
 }
 function removeVariantOption(typeIdx, optIdx) {
   productVariants[typeIdx].options.splice(optIdx, 1);
