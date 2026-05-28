@@ -1053,7 +1053,9 @@ function renderDailyReport() {
   const refunds = (appData.transactions||[]).filter(t => new Date(t.date).toDateString()===selStr && t.type==='refund');
   const cashTotal = todayTxs.filter(t=>t.method==='cash').reduce((s,t)=>s+t.total,0);
   const paypayTotal = todayTxs.filter(t=>t.method==='paypay').reduce((s,t)=>s+t.total,0);
-  const refundTotal = refunds.reduce((s,t)=>s+t.total,0);
+  const cashRefundTotal = refunds.filter(t=>t.method==='cash').reduce((s,t)=>s+t.total,0);
+  const paypayRefundTotal = refunds.filter(t=>t.method==='paypay').reduce((s,t)=>s+t.total,0);
+  const refundTotal = cashRefundTotal + paypayRefundTotal;
   const netTotal = cashTotal + paypayTotal - refundTotal;
   const d = sel;
   const productSales = {};
@@ -1069,7 +1071,8 @@ function renderDailyReport() {
       <div class="divider"></div>
       <div class="stat-row"><span class="stat-label">現金</span><span class="stat-value">¥${cashTotal.toLocaleString()}</span></div>
       <div class="stat-row"><span class="stat-label">PayPay</span><span class="stat-value">¥${paypayTotal.toLocaleString()}</span></div>
-      <div class="stat-row"><span class="stat-label" style="color:var(--red)">返金</span><span class="stat-value" style="color:var(--red)">-¥${refundTotal.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="stat-label" style="color:var(--red)">返金（現金）</span><span class="stat-value" style="color:var(--red)">-¥${cashRefundTotal.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="stat-label" style="color:var(--red)">返金（PayPay）</span><span class="stat-value" style="color:var(--red)">-¥${paypayRefundTotal.toLocaleString()}</span></div>
     </div>
     <div class="report-card">
       <h3>商品別売上</h3>
