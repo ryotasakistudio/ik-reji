@@ -90,9 +90,8 @@ body{font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;backgrou
 .btn-accent:active,.btn-secondary:active{opacity:0.8}
 
 /* Emoji Picker */
-.emoji-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0.5rem;margin-top:0.5rem}
-.emoji-opt{font-size:1.5rem;padding:0.375rem;border-radius:var(--radius-sm);cursor:pointer;text-align:center;background:var(--surface2);border:2px solid transparent}
-.emoji-opt.selected{border-color:var(--accent)}
+.product-image-upload{width:100%;height:120px;background:var(--surface2);border:2px dashed var(--border2);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-direction:column;gap:0.375rem}
+.product-image-upload img{width:100%;height:100%;object-fit:cover;display:block}
 
 /* Checkout */
 .checkout-screen{padding:1rem;display:flex;flex-direction:column;gap:1rem}
@@ -488,8 +487,12 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div class="modal-handle"></div>
     <div class="modal-title" id="add-product-modal-title">商品を追加</div>
     <div class="form-group">
-      <label>商品アイコン</label>
-      <div class="emoji-grid" id="emoji-grid"></div>
+      <label>商品画像（任意）</label>
+      <div class="product-image-upload" id="product-image-preview" onclick="document.getElementById('product-image-input').click()">
+        <i class="ti ti-camera" style="font-size:2rem;color:var(--text3)"></i>
+        <span style="font-size:0.8125rem;color:var(--text3)">タップして画像を選択</span>
+      </div>
+      <input type="file" id="product-image-input" accept="image/*" style="display:none" onchange="handleProductImageChange(this)">
     </div>
     <div class="form-group">
       <label>商品名</label>
@@ -530,6 +533,8 @@ let appData = {};
 
 const EMOJIS = ['👕','👗','👒','🧢','👜','💍','📀','🎵','🎤','📸','🎸','🎹','🎨','🖼️','🪆','🧸','🎁','💝','⭐','🌟'];
 let selectedEmoji = '👕';
+let selectedImageFile = null;
+let selectedImageUrl = null;
 let editingProductId = null;
 let cart = [];
 let selectedPayMethod = null;
@@ -706,7 +711,7 @@ function renderProductGrid(containerId, products) {
   el.innerHTML = products.map(p => {
     const qty = (cart.find(c => c.id === p.id) || {qty:0}).qty;
     return `<div class="product-card" onclick="addToCart('${p.id}')">
-      <div class="product-img">${p.emoji}</div>
+      <div class="product-img">${p.imageUrl ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover;display:block">` : p.emoji}</div>
       ${qty > 0 ? `<div class="badge-cart">${qty}</div>` : ''}
       <button class="product-fav-btn ${p.favorite?'active':''}" onclick="toggleFav(event,'${p.id}')">
         <i class="ti ti-heart${p.favorite?'-filled':''}"></i>
@@ -722,10 +727,13 @@ function renderProductGrid(containerId, products) {
 function openAddProduct(productId = null) {
   editingProductId = productId;
   selectedEmoji = '👕';
+  selectedImageFile = null;
+  selectedImageUrl = null;
   if (productId) {
     const p = appData.products.find(x => x.id === productId);
     if (p) {
-      selectedEmoji = p.emoji;
+      selectedEmoji = p.emoji || '👕';
+      selectedImageUrl = p.imageUrl || null;
       document.getElementById('product-name-input').value = p.name;
       document.getElementById('product-price-input').value = p.price;
       document.getElementById('product-stock-input').value = p.stock;
@@ -739,25 +747,53 @@ function openAddProduct(productId = null) {
     document.getElementById('add-product-modal-title').textContent = '商品を追加';
     document.getElementById('save-product-btn').textContent = '保存';
   }
-  document.getElementById('emoji-grid').innerHTML = EMOJIS.map(e =>
-    `<div class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="selectEmoji('${e}')">${e}</div>`
-  ).join('');
+  const preview = document.getElementById('product-image-preview');
+  if (selectedImageUrl) {
+    preview.innerHTML = `<img src="${selectedImageUrl}">`;
+  } else {
+    preview.innerHTML = `<i class="ti ti-camera" style="font-size:2rem;color:var(--text3)"></i><span style="font-size:0.8125rem;color:var(--text3)">タップして画像を選択</span>`;
+  }
+  document.getElementById('product-image-input').value = '';
   document.getElementById('modal-add-product').classList.add('open');
 }
-function selectEmoji(e) {
-  selectedEmoji = e;
-  document.querySelectorAll('.emoji-opt').forEach(el => el.classList.toggle('selected', el.textContent === e));
+function handleProductImageChange(input) {
+  if (!input.files[0]) return;
+  selectedImageFile = input.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('product-image-preview').innerHTML = `<img src="${e.target.result}">`;
+  };
+  reader.readAsDataURL(selectedImageFile);
 }
-function saveProduct() {
+async function saveProduct() {
   const name = document.getElementById('product-name-input').value.trim();
   const price = parseInt(document.getElementById('product-price-input').value);
   const stock = parseInt(document.getElementById('product-stock-input').value);
   if (!name || isNaN(price) || isNaN(stock)) { showToast('全項目を入力してください'); return; }
-  if (editingProductId) {
-    const p = appData.products.find(x => x.id === editingProductId);
-    if (p) { p.name=name; p.price=price; p.stock=stock; p.emoji=selectedEmoji; }
+  let imageUrl = selectedImageUrl;
+  if (selectedImageFile) {
+    const productId = editingProductId || ('p_' + Date.now());
+    const ext = selectedImageFile.name.split('.').pop().toLowerCase() || 'jpg';
+    const path = `${currentUser.id}/${productId}.${ext}`;
+    const { error: uploadError } = await window.supabase.storage
+      .from('product-images')
+      .upload(path, selectedImageFile, { upsert: true });
+    if (uploadError) { showToast('画像のアップロードに失敗しました'); return; }
+    const { data: urlData } = window.supabase.storage.from('product-images').getPublicUrl(path);
+    imageUrl = urlData.publicUrl;
+    if (editingProductId) {
+      const p = appData.products.find(x => x.id === editingProductId);
+      if (p) { p.name=name; p.price=price; p.stock=stock; p.emoji=selectedEmoji; p.imageUrl=imageUrl; }
+    } else {
+      appData.products.push({ id: productId, name, price, stock, emoji: selectedEmoji, imageUrl, favorite: false });
+    }
   } else {
-    appData.products.push({ id:'p_'+Date.now(), name, price, stock, emoji:selectedEmoji, favorite:false });
+    if (editingProductId) {
+      const p = appData.products.find(x => x.id === editingProductId);
+      if (p) { p.name=name; p.price=price; p.stock=stock; p.emoji=selectedEmoji; p.imageUrl=imageUrl; }
+    } else {
+      appData.products.push({ id:'p_'+Date.now(), name, price, stock, emoji:selectedEmoji, imageUrl, favorite:false });
+    }
   }
   saveUserData();
   closeModal('modal-add-product');
