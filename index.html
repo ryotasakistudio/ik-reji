@@ -845,7 +845,7 @@ function renderCartItems() {
     if (!p) return '';
     return `<div class="checkout-item">
       <div class="checkout-item-left">
-        <div class="checkout-item-emoji">${p.emoji}</div>
+        <div class="checkout-item-emoji">${p.imageUrl ? `<img src="${p.imageUrl}" style="width:1.5rem;height:1.5rem;object-fit:cover;border-radius:4px;display:block">` : p.emoji}</div>
         <div>
           <div class="checkout-item-name">${p.name}</div>
           <div class="checkout-item-price">¥${p.price.toLocaleString()} × ${c.qty}</div>
