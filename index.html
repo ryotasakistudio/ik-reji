@@ -447,7 +447,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
       <div class="others-item" onclick="openOthersSection('settle-history')">
         <div class="others-item-left">
           <div class="others-item-icon" style="background:var(--amber-bg);color:var(--amber)"><i class="ti ti-receipt"></i></div>
-          <div><div class="others-item-title">精算履歴</div><div class="others-item-sub">過去の精算記録</div></div>
+          <div><div class="others-item-title">精算・入金履歴</div><div class="others-item-sub">過去の精算・入金記録</div></div>
         </div>
         <i class="ti ti-chevron-right" style="color:var(--text3)"></i>
       </div>
@@ -1494,7 +1494,7 @@ function doSettle() {
 
 // ======= OTHERS =======
 function openOthersSection(section) {
-  const titles = {report:'レポート','settle-history':'精算履歴','cash-manage':'レジ金管理','product-manage':'商品管理'};
+  const titles = {report:'レポート','settle-history':'精算・入金履歴','cash-manage':'レジ金管理','product-manage':'商品管理'};
   document.getElementById('others-sub-title').textContent = titles[section]||section;
   const content = document.getElementById('others-sub-content');
   if (section==='report') {
@@ -1503,13 +1503,20 @@ function openOthersSection(section) {
     initProductManageTemp();
     renderProductManage(content);
   } else if (section==='settle-history') {
-    const settlements = appData.settlements||[];
-    content.innerHTML = settlements.length ? `<div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
-      ${settlements.map(s=>{const d=new Date(s.date);return `<div class="tx-item">
-        <div class="tx-item-header"><span class="tx-amount">¥${s.total.toLocaleString()}</span><span class="tx-badge badge-cash">精算</span></div>
-        <div class="tx-meta">${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}</div>
-      </div>`}).join('')}
-    </div>` : '<div class="empty-state"><i class="ti ti-receipt-off"></i><p>精算履歴がありません</p></div>';
+    const settleItems = (appData.settlements||[]).map(s=>({type:'settle',total:s.total,date:s.date}));
+    const depositItems = (appData.cashLedger||[]).filter(e=>e.type==='deposit').map(e=>({type:'deposit',total:e.amount,date:e.date}));
+    const allItems = [...settleItems,...depositItems].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    content.innerHTML = allItems.length ? `<div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
+      ${allItems.map(item=>{
+        const d=new Date(item.date);
+        const dateStr=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+        const badge=item.type==='settle'?`<span class="tx-badge badge-cash">精算</span>`:`<span class="tx-badge badge-paypay">入金</span>`;
+        return `<div class="tx-item">
+          <div class="tx-item-header"><span class="tx-amount">¥${item.total.toLocaleString()}</span>${badge}</div>
+          <div class="tx-meta">${dateStr}</div>
+        </div>`;
+      }).join('')}
+    </div>` : '<div class="empty-state"><i class="ti ti-receipt-off"></i><p>履歴がありません</p></div>';
   } else if (section==='cash-manage') {
     renderCashManage(content);
   }
