@@ -993,7 +993,9 @@ async function saveProduct() {
           const safeKey = k.replace(/\//g, '_');
           const vpath = `${currentUser.id}/${productId}_v_${safeKey}.${ext}`;
           const { error: ve } = await window.supabase.storage.from('product-images').upload(vpath, productVariantImageFiles[k], { upsert: true });
-          if (!ve) {
+          if (ve) {
+            showToast(`${k} の画像アップロードに失敗しました`);
+          } else {
             const { data: vurl } = window.supabase.storage.from('product-images').getPublicUrl(vpath);
             variantImages[k] = vurl.publicUrl;
           }
@@ -1059,7 +1061,9 @@ function renderVariantSelectContent() {
     const minusDisabled = qty <= 0;
     const plusDisabled = stock <= 0 || qty >= stock;
     const vImgUrl = p.variantImages?.[key];
-    const vImgHtml = vImgUrl ? `<img src="${vImgUrl}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '';
+    const vImgHtml = vImgUrl
+      ? `<img src="${vImgUrl}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">`
+      : `<div style="width:36px;height:36px;border-radius:6px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0">${p.emoji}</div>`;
     return `
       <div style="display:flex;align-items:center;gap:0.625rem;padding:0.625rem 0;border-bottom:1px solid var(--border)">
         ${vImgHtml}
