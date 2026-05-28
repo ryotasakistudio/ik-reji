@@ -579,26 +579,39 @@ async function doRegister() {
   showAuthCard('complete');
 }
 
-function doLogin() {
-  const id = document.getElementById('login-id').value.trim();
+async function doLogin() {
+  const email = document.getElementById('login-id').value.trim();
   const pw = document.getElementById('login-pw').value;
   const err = document.getElementById('auth-error');
-  if (DEMO_USERS[id] && DEMO_USERS[id].password === pw) {
-    err.style.display = 'none';
-    currentUser = { id, name: DEMO_USERS[id].name };
-    appData = loadUserData(id);
-    document.getElementById('topbar-artist').textContent = currentUser.name;
-    document.getElementById('logout-artist-name').textContent = currentUser.name;
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('main-app').style.display = 'flex';
-    document.getElementById('main-app').style.flexDirection = 'column';
-    renderProducts();
-    renderTransactions();
-    renderDailyReport();
-    buildSettlementInputs();
-  } else {
+  err.style.display = 'none';
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    err.textContent = error.message.includes('Email not confirmed')
+      ? 'メールを確認してください'
+      : 'IDまたはパスワードが正しくありません';
     err.style.display = 'block';
+    return;
   }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('artist_name')
+    .eq('id', data.user.id)
+    .single();
+
+  currentUser = { id: data.user.id, name: profile?.artist_name || email };
+  appData = await loadUserData(data.user.id);
+
+  document.getElementById('topbar-artist').textContent = currentUser.name;
+  document.getElementById('logout-artist-name').textContent = currentUser.name;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'flex';
+  document.getElementById('main-app').style.flexDirection = 'column';
+  renderProducts();
+  renderTransactions();
+  renderDailyReport();
+  buildSettlementInputs();
 }
 function confirmLogout() {
   if (confirm('本当にログアウトしますか？')) {
