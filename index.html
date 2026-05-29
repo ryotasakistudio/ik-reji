@@ -1556,7 +1556,7 @@ function renderDailyReport() {
     </div>
     <div class="report-card">
       <h3>商品別売上</h3>
-      ${Object.values(productSales).length ? Object.values(productSales).map(ps => {
+      ${Object.values(productSales).filter(ps=>ps.qty>0).length ? Object.values(productSales).filter(ps=>ps.qty>0).map(ps => {
         const prod = (appData.products||[]).find(p=>p.id===ps.productId);
         const hasVariants = Object.keys(ps.variants).length > 0;
         const variantRows = hasVariants ? Object.entries(ps.variants).map(([vk,vQty]) => {
@@ -1702,7 +1702,7 @@ function renderOthersReport(content) {
   };
 
   const psHtml = ps => {
-    const entries = Object.values(ps);
+    const entries = Object.values(ps).filter(e=>e.qty>0);
     if (!entries.length) return '<div style="color:var(--text3);text-align:center;padding:0.5rem 0;font-size:0.875rem">売上はありません</div>';
     return entries.map(e => {
       const hasV = Object.keys(e.variants).length > 0;
