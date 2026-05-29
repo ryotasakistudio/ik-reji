@@ -1538,6 +1538,12 @@ function renderDailyReport() {
     productSales[item.productId].total += item.price*item.qty;
     if (item.variantKey) productSales[item.productId].variants[item.variantKey] = (productSales[item.productId].variants[item.variantKey]||0) + item.qty;
   }));
+  refunds.forEach(tx => tx.items.forEach(item => {
+    if (!productSales[item.productId]) return;
+    productSales[item.productId].qty = Math.max(0, productSales[item.productId].qty - item.qty);
+    productSales[item.productId].total = Math.max(0, productSales[item.productId].total - item.price*item.qty);
+    if (item.variantKey) productSales[item.productId].variants[item.variantKey] = Math.max(0, (productSales[item.productId].variants[item.variantKey]||0) - item.qty);
+  }));
   document.getElementById('daily-report-content').innerHTML = `
     <div class="report-card">
       <h3>${d.getMonth()+1}月${d.getDate()}日の売上</h3>
@@ -1678,13 +1684,19 @@ function renderOthersReport(content) {
   const years = [...new Set([new Date().getFullYear(), ...(txs.map(t=>new Date(t.date).getFullYear()))])].sort((a,b)=>a-b);
   const calc = arr => ({ sales:arr.reduce((s,t)=>s+t.total,0), count:arr.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0) });
 
-  const calcPS = arr => {
+  const calcPS = (salesArr, refundArr) => {
     const ps = {};
-    arr.forEach(tx => tx.items.forEach(item => {
+    salesArr.forEach(tx => tx.items.forEach(item => {
       if (!ps[item.productId]) ps[item.productId] = {name:item.name,qty:0,total:0,variants:{}};
       ps[item.productId].qty += item.qty;
       ps[item.productId].total += item.price*item.qty;
       if (item.variantKey) ps[item.productId].variants[item.variantKey] = (ps[item.productId].variants[item.variantKey]||0) + item.qty;
+    }));
+    (refundArr||[]).forEach(tx => tx.items.forEach(item => {
+      if (!ps[item.productId]) return;
+      ps[item.productId].qty = Math.max(0, ps[item.productId].qty - item.qty);
+      ps[item.productId].total = Math.max(0, ps[item.productId].total - item.price*item.qty);
+      if (item.variantKey) ps[item.productId].variants[item.variantKey] = Math.max(0, (ps[item.productId].variants[item.variantKey]||0) - item.qty);
     }));
     return ps;
   };
@@ -1708,16 +1720,19 @@ function renderOthersReport(content) {
 
   const dayDate = new Date(othersReportDay + 'T00:00:00');
   const dayTxs = txs.filter(t=>new Date(t.date).toDateString()===dayDate.toDateString()&&t.type!=='refund');
+  const dayRefunds = txs.filter(t=>new Date(t.date).toDateString()===dayDate.toDateString()&&t.type==='refund');
   const dayData = calc(dayTxs);
-  const dayPS = calcPS(dayTxs);
+  const dayPS = calcPS(dayTxs, dayRefunds);
 
   const monthTxs = txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===othersReportMonth&&d.getFullYear()===othersReportMonthYear&&t.type!=='refund';});
+  const monthRefunds = txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===othersReportMonth&&d.getFullYear()===othersReportMonthYear&&t.type==='refund';});
   const monthData = calc(monthTxs);
-  const monthPS = calcPS(monthTxs);
+  const monthPS = calcPS(monthTxs, monthRefunds);
 
   const yearTxs = txs.filter(t=>new Date(t.date).getFullYear()===othersReportYear&&t.type!=='refund');
+  const yearRefunds = txs.filter(t=>new Date(t.date).getFullYear()===othersReportYear&&t.type==='refund');
   const yearData = calc(yearTxs);
-  const yearPS = calcPS(yearTxs);
+  const yearPS = calcPS(yearTxs, yearRefunds);
 
   const yearOpts = years.map(y=>`<option value="${y}" ${y===othersReportYear?'selected':''}>${y}年</option>`).join('');
   const monthYearOpts = years.map(y=>`<option value="${y}" ${y===othersReportMonthYear?'selected':''}>${y}年</option>`).join('');
