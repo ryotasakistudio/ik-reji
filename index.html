@@ -1413,9 +1413,62 @@ function confirmRefund(txId) {
     if (!refundTotal) { showToast('返金額を入力してください'); return; }
     refundItems = tx.items;
   }
+  window._refundItems = refundItems;
+  window._refundTotal = refundTotal;
+  if (tx.method === 'cash') {
+    window._refundCounts = {};
+    DENOMINATIONS.forEach(d => { window._refundCounts[d] = 0; });
+    document.getElementById('refund-content').innerHTML = `
+      <div class="modal-handle"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div class="modal-title" style="margin:0">返金枚数入力</div>
+        <div style="font-size:1.25rem;font-weight:700;color:var(--red)">-¥${refundTotal.toLocaleString()}</div>
+      </div>
+      <div class="settlement-card">
+        ${DENOMINATIONS.map(d=>`<div class="settlement-row">
+          <div class="settle-denom">¥${d.toLocaleString()}</div>
+          <input class="settle-input" type="number" value="0" min="0" inputmode="numeric" onchange="updateRefundCount(${d},this.value)">
+          <div class="settle-subtotal" id="rc-sub-${d}">¥0</div>
+        </div>`).join('')}
+      </div>
+      <div class="settlement-total">
+        <span class="settle-total-label">返金合計</span>
+        <span class="settle-total-amount" id="rc-total">¥0</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
+        <button class="btn-secondary" style="flex:1;padding:1rem" onclick="window._renderRefund()">戻る</button>
+        <button class="btn-accent" style="flex:1;padding:1rem;background:var(--red)" onclick="executeRefund('${txId}')">返品確定</button>
+      </div>`;
+  } else {
+    if (!confirm(`払い戻し金額: ¥${refundTotal.toLocaleString()}\nOKを押すと返品されます`)) return;
+    executeRefund(txId);
+  }
+}
+function updateRefundCount(d, val) {
+  window._refundCounts[d] = parseInt(val)||0;
+  const el = document.getElementById('rc-sub-'+d);
+  if(el) el.textContent = '¥'+(d*window._refundCounts[d]).toLocaleString();
+  const total = DENOMINATIONS.reduce((s,d)=>s+d*(window._refundCounts[d]||0),0);
+  const el2 = document.getElementById('rc-total');
+  if(el2) el2.textContent = '¥'+total.toLocaleString();
+}
+function executeRefund(txId) {
+  const tx = appData.transactions.find(t => t.id===txId);
+  if (!tx) return;
+  const refundItems = window._refundItems;
+  const refundTotal = window._refundTotal;
+  if (tx.method === 'cash') {
+    const countTotal = DENOMINATIONS.reduce((s,d)=>s+d*(window._refundCounts[d]||0),0);
+    if (countTotal !== refundTotal) { showToast(`枚数の合計が一致しません（¥${countTotal.toLocaleString()}）`); return; }
+  }
   if (!confirm(`払い戻し金額: ¥${refundTotal.toLocaleString()}\nOKを押すと返品されます`)) return;
   appData.transactions.unshift({ id:'tx_'+Date.now(), type:'refund', method:tx.method, total:refundTotal, items:refundItems, originalTxId:txId, date:new Date().toISOString() });
-  if (tx.method === 'cash') appData.regiFund = Math.max(0, (appData.regiFund||0) - refundTotal);
+  if (tx.method === 'cash') {
+    appData.regiFund = Math.max(0, (appData.regiFund||0) - refundTotal);
+    const cur = Object.assign({}, appData.regiFundCounts||{});
+    DENOMINATIONS.forEach(d=>{ cur[d]=Math.max(0,(cur[d]||0)-(window._refundCounts[d]||0)); });
+    appData.regiFundCounts = cur;
+  }
   refundItems.forEach(item => {
     const p = (appData.products||[]).find(x => x.id === item.productId);
     if (!p) return;
