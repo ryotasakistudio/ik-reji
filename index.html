@@ -1455,9 +1455,15 @@ function confirmRefund(txId) {
             <div class="settle-subtotal" style="font-weight:700">¥${receiveTotal.toLocaleString()}</div>
           </div>
         </div>
-        <div class="settlement-total" style="margin-bottom:0.75rem">
+        <div class="settlement-total">
           <span class="settle-total-label">差引返金額</span>
-          <span class="settle-total-amount" style="color:${net===refundTotal?'var(--green)':'var(--red)'}">¥${net.toLocaleString()}</span>
+          <span class="settle-total-amount">¥${net.toLocaleString()}</span>
+        </div>
+        <div class="settlement-total" style="margin-bottom:0.75rem">
+          <span class="settle-total-label">差引返金差額</span>
+          <span class="settle-total-amount" style="color:${net===refundTotal?'var(--green)':'var(--red)'}">
+            ${net===refundTotal?'±¥0':net>refundTotal?'+¥'+(net-refundTotal).toLocaleString():'-¥'+(refundTotal-net).toLocaleString()}
+          </span>
         </div>
         <div style="display:flex;gap:0.5rem">
           <button class="btn-secondary" style="flex:1;padding:1rem" onclick="window._renderRefund()">戻る</button>
