@@ -641,6 +641,7 @@ async function selectArtist(id, name) {
 }
 
 function enterApp(isAssistant) {
+  localStorage.setItem('ik_session', JSON.stringify({ user: currentUser, isAssistant }));
   document.getElementById('topbar-artist').textContent = currentUser.name;
   document.getElementById('logout-artist-name').textContent = currentUser.name;
   document.getElementById('auth-screen').style.display = 'none';
@@ -667,6 +668,7 @@ function enterApp(isAssistant) {
 
 function confirmLogout() {
   if (!confirm('本当にログアウトしますか？')) return;
+  localStorage.removeItem('ik_session');
   currentUser = null; appData = {}; cart = [];
   document.getElementById('main-app').classList.remove('assistant-mode');
   document.getElementById('auth-screen').style.display = 'flex';
@@ -2031,7 +2033,21 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementB
   enterApp(true);
 })();
 
-// SESSION RESTOREは不要（Supabase認証廃止のため）
+// ======= SESSION RESTORE =======
+(async () => {
+  const params = new URLSearchParams(location.search);
+  if (params.get('token')) return;
+  const saved = localStorage.getItem('ik_session');
+  if (!saved) return;
+  try {
+    const { user, isAssistant } = JSON.parse(saved);
+    currentUser = user;
+    appData = await loadUserData(user.id);
+    enterApp(isAssistant);
+  } catch(e) {
+    localStorage.removeItem('ik_session');
+  }
+})();
 </script>
 </body>
 </html>
