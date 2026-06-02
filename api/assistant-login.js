@@ -17,14 +17,16 @@ export default async function handler(req, res) {
 
   if (!profile) return res.status(401).json({ error: 'invalid token' });
 
-  const { data, error } = await supabase.auth.admin.createSession({
-    user_id: profile.id
+  const { data: userData } = await supabase.auth.admin.getUserById(profile.id);
+  if (!userData?.user) return res.status(404).json({ error: 'user not found' });
+
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: 'magiclink',
+    email: userData.user.email,
+    options: { redirectTo: 'https://ik-reji-three.vercel.app/' }
   });
 
-  if (error || !data?.session) return res.status(500).json({ error: 'session creation failed' });
+  if (error) return res.status(500).json({ error: error.message });
 
-  res.status(200).json({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token
-  });
+  res.redirect(302, data.properties.action_link);
 }
