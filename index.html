@@ -659,6 +659,13 @@ function enterApp(isAssistant) {
     document.getElementById('topbar-artist').after(b);
   } else {
     app.classList.remove('assistant-mode');
+    const ab = document.createElement('span');
+    ab.id = 'assistant-badge';
+    ab.className = 'assistant-badge';
+    ab.style.background = 'var(--amber-bg)';
+    ab.style.color = 'var(--amber)';
+    ab.textContent = '管理者';
+    document.getElementById('topbar-artist').after(ab);
   }
   renderProducts();
   renderTransactions();
