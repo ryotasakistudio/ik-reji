@@ -176,6 +176,8 @@ body{font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;backgrou
 .settle-input::placeholder{color:var(--text3)}
 .staff-btn{padding:0.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text1);font-size:0.9375rem;font-family:inherit;cursor:pointer}
 .staff-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.assistant-mode .admin-only{display:none!important}
+.assistant-badge{background:var(--blue-bg);color:var(--blue);font-size:0.75rem;padding:0.125rem 0.5rem;border-radius:99px;font-weight:600}
 .settle-subtotal{font-size:0.875rem;color:var(--text2)}
 .settlement-total{background:var(--accent);color:#fff;border-radius:var(--radius);padding:1rem 1.25rem;margin:1rem;display:flex;justify-content:space-between;align-items:center}
 .settle-total-label{font-size:0.875rem;opacity:0.8}
@@ -253,47 +255,21 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
   <div class="auth-logo">IK 物販レジ</div>
   <div class="auth-sub">Artist POS System</div>
 
-  <!-- ログインカード -->
+  <!-- 管理者ログインカード -->
   <div class="auth-card" id="card-login">
-    <h3>ログイン</h3>
-    <div class="auth-error" id="auth-error">IDまたはパスワードが正しくありません</div>
-    <div class="form-group">
-      <label>アーティストID</label>
-      <input type="text" id="login-id" placeholder="artist_id" autocomplete="username">
-    </div>
+    <h3>管理者ログイン</h3>
+    <div class="auth-error" id="auth-error">パスワードが正しくありません</div>
     <div class="form-group">
       <label>パスワード</label>
       <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn-primary" onclick="doLogin()">ログイン</button>
-    <div class="auth-hint" style="cursor:pointer;color:var(--accent)" onclick="showAuthCard('register')">新規登録はこちら →</div>
   </div>
 
-  <!-- 登録カード -->
-  <div class="auth-card" id="card-register" style="display:none">
-    <h3>新規登録</h3>
-    <div class="auth-error" id="register-error">エラーが発生しました</div>
-    <div class="form-group">
-      <label>アーティスト名</label>
-      <input type="text" id="register-name" placeholder="アーティスト名" autocomplete="name">
-    </div>
-    <div class="form-group">
-      <label>アーティストID</label>
-      <input type="text" id="register-email" placeholder="artist_id（半角英数字）" autocomplete="username">
-    </div>
-    <div class="form-group">
-      <label>パスワード</label>
-      <input type="password" id="register-pw" placeholder="••••••••" autocomplete="new-password">
-    </div>
-    <button class="btn-primary" onclick="doRegister()">登録する</button>
-    <div class="auth-hint" style="cursor:pointer;color:var(--accent)" onclick="showAuthCard('login')">← ログインに戻る</div>
-  </div>
-
-  <!-- 登録完了カード -->
-  <div class="auth-card" id="card-complete" style="display:none">
-    <h3>確認メールを送信しました</h3>
-    <p style="font-size:0.875rem;color:var(--text2);margin-top:1rem;line-height:1.6">メールのリンクをクリックしてからログインしてください。</p>
-    <div class="auth-hint" style="cursor:pointer;color:var(--accent);margin-top:1.5rem" onclick="showAuthCard('login')">← ログインに戻る</div>
+  <!-- アーティスト選択カード -->
+  <div class="auth-card" id="card-artist-select" style="display:none">
+    <h3>アーティストを選択</h3>
+    <div id="artist-list" style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem"></div>
   </div>
 </div>
 
@@ -513,10 +489,10 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div class="nav-item" onclick="switchTab('transactions')" id="nav-transactions">
       <i class="ti ti-list"></i><span>お取引</span>
     </div>
-    <div class="nav-item" onclick="switchTab('settlement')" id="nav-settlement">
+    <div class="nav-item admin-only" onclick="switchTab('settlement')" id="nav-settlement">
       <i class="ti ti-report-money"></i><span>精算</span>
     </div>
-    <div class="nav-item" onclick="switchTab('others')" id="nav-others">
+    <div class="nav-item admin-only" onclick="switchTab('others')" id="nav-others">
       <i class="ti ti-dots"></i><span>その他</span>
     </div>
   </div>
@@ -634,116 +610,68 @@ async function saveUserData() {
 }
 
 // ======= AUTH =======
+const ADMIN_PASSWORD = 'IKmE0812';
+
 function showAuthCard(name) {
-  ['login','register','complete'].forEach(n => {
-    document.getElementById('card-' + n).style.display = n === name ? 'block' : 'none';
+  ['login','artist-select'].forEach(n => {
+    const el = document.getElementById('card-' + n);
+    if (el) el.style.display = n === name ? 'block' : 'none';
   });
-  document.getElementById('auth-error').style.display = 'none';
-  document.getElementById('register-error').style.display = 'none';
-}
-
-async function doRegister() {
-  const name = document.getElementById('register-name').value.trim();
-  const artistId = document.getElementById('register-email').value.trim();
-  const pw = document.getElementById('register-pw').value;
-  const err = document.getElementById('register-error');
-  err.style.display = 'none';
-
-  if (!name || !artistId || !pw) {
-    err.textContent = 'すべての項目を入力してください';
-    err.style.display = 'block';
-    return;
-  }
-
-  const email = artistId + '@ik-reji.app';
-  const { data: signUpData, error } = await supabase.auth.signUp({ email, password: pw });
-  if (error) {
-    err.textContent = error.message.includes('already')
-      ? 'このIDは既に使用されています'
-      : '通信エラーが発生しました。再度お試しください';
-    err.style.display = 'block';
-    return;
-  }
-
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .insert({ id: signUpData.user.id, artist_name: name });
-  if (profileError) {
-    await supabase.auth.signOut();
-    err.textContent = '登録に失敗しました。再度お試しください';
-    err.style.display = 'block';
-    return;
-  }
-
-  // メール確認なし → 登録後そのままログイン
-  const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password: pw });
-  if (loginError) { showAuthCard('login'); return; }
-
-  currentUser = { id: loginData.user.id, name };
-  appData = await loadUserData(loginData.user.id);
-
-  document.getElementById('topbar-artist').textContent = currentUser.name;
-  document.getElementById('logout-artist-name').textContent = currentUser.name;
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = 'flex';
-  document.getElementById('main-app').style.flexDirection = 'column';
-  renderProducts();
-  renderTransactions();
-  renderDailyReport();
-  buildSettlementInputs();
+  const err = document.getElementById('auth-error');
+  if (err) err.style.display = 'none';
 }
 
 async function doLogin() {
-  const id = document.getElementById('login-id').value.trim();
   const pw = document.getElementById('login-pw').value;
   const err = document.getElementById('auth-error');
   err.style.display = 'none';
+  if (pw !== ADMIN_PASSWORD) { err.style.display = 'block'; return; }
+  const { data: profiles } = await supabase.from('profiles').select('id, artist_name').order('artist_name');
+  const list = document.getElementById('artist-list');
+  list.innerHTML = (profiles || []).map(p =>
+    `<button onclick="selectArtist('${p.id}','${p.artist_name.replace(/'/g,"\\'")}\')" style="width:100%;padding:0.875rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:1rem;font-family:inherit;cursor:pointer;font-weight:600;text-align:left">${p.artist_name}</button>`
+  ).join('');
+  showAuthCard('artist-select');
+}
 
-  const email = id + '@ik-reji.app';
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
-  if (error) {
-    err.textContent = error.message.includes('Email not confirmed')
-      ? 'メールを確認してください'
-      : 'IDまたはパスワードが正しくありません';
-    err.style.display = 'block';
-    return;
-  }
+async function selectArtist(id, name) {
+  currentUser = { id, name, isAdmin: true };
+  appData = await loadUserData(id);
+  enterApp(false);
+}
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('artist_name')
-    .eq('id', data.user.id)
-    .maybeSingle();
-
-  if (!profile?.artist_name) {
-    await supabase.auth.signOut();
-    err.textContent = 'そのアーティストは存在しません';
-    err.style.display = 'block';
-    return;
-  }
-
-  currentUser = { id: data.user.id, name: profile.artist_name };
-  appData = await loadUserData(data.user.id);
-
+function enterApp(isAssistant) {
   document.getElementById('topbar-artist').textContent = currentUser.name;
   document.getElementById('logout-artist-name').textContent = currentUser.name;
   document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = 'flex';
-  document.getElementById('main-app').style.flexDirection = 'column';
+  const app = document.getElementById('main-app');
+  app.style.display = 'flex';
+  app.style.flexDirection = 'column';
+  const badge = document.getElementById('assistant-badge');
+  if (badge) badge.remove();
+  if (isAssistant) {
+    app.classList.add('assistant-mode');
+    const b = document.createElement('span');
+    b.id = 'assistant-badge';
+    b.className = 'assistant-badge';
+    b.textContent = 'アシスタント';
+    document.getElementById('topbar-artist').after(b);
+  } else {
+    app.classList.remove('assistant-mode');
+  }
   renderProducts();
   renderTransactions();
   renderDailyReport();
   buildSettlementInputs();
 }
-async function confirmLogout() {
+
+function confirmLogout() {
   if (!confirm('本当にログアウトしますか？')) return;
-  await supabase.auth.signOut();
   currentUser = null; appData = {}; cart = [];
+  document.getElementById('main-app').classList.remove('assistant-mode');
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('main-app').style.display = 'none';
-  document.getElementById('login-id').value = '';
   document.getElementById('login-pw').value = '';
-  document.getElementById('auth-error').style.display = 'none';
   showAuthCard('login');
 }
 
@@ -2086,46 +2014,24 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('auth-screen').style.display!=='none')doLogin();});
 
-// ======= TOKEN AUTO LOGIN =======
+// ======= TOKEN AUTO LOGIN (アシスタント) =======
 (async () => {
   const params = new URLSearchParams(location.search);
   const token = params.get('token');
   if (!token) return;
   history.replaceState({}, '', location.pathname);
-  const res = await fetch(`/api/assistant-login?token=${encodeURIComponent(token)}`);
-  const json = await res.json();
-  if (!json.access_token) { showToast('QRコードが無効です'); return; }
-  await supabase.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { showToast('ログインに失敗しました'); return; }
-  const { data: profile } = await supabase.from('profiles').select('artist_name').eq('id', user.id).maybeSingle();
-  currentUser = { id: user.id, name: profile?.artist_name || user.email };
-  appData = await loadUserData(user.id);
-  document.getElementById('topbar-artist').textContent = currentUser.name;
-  document.getElementById('logout-artist-name').textContent = currentUser.name;
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = 'flex';
-  document.getElementById('main-app').style.flexDirection = 'column';
-  renderProducts(); renderTransactions(); renderDailyReport(); buildSettlementInputs();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, artist_name')
+    .eq('assistant_token', token)
+    .maybeSingle();
+  if (!profile) { showToast('QRコードが無効です'); return; }
+  currentUser = { id: profile.id, name: profile.artist_name, isAssistant: true, assistantToken: token };
+  appData = await loadUserData(profile.id);
+  enterApp(true);
 })();
 
-// ======= SESSION RESTORE =======
-(async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
-  const { data: profile } = await supabase.from('profiles').select('artist_name').eq('id', session.user.id).maybeSingle();
-  currentUser = { id: session.user.id, name: profile?.artist_name || session.user.email };
-  appData = await loadUserData(session.user.id);
-  document.getElementById('topbar-artist').textContent = currentUser.name;
-  document.getElementById('logout-artist-name').textContent = currentUser.name;
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = 'flex';
-  document.getElementById('main-app').style.flexDirection = 'column';
-  renderProducts();
-  renderTransactions();
-  renderDailyReport();
-  buildSettlementInputs();
-})();
+// SESSION RESTOREは不要（Supabase認証廃止のため）
 </script>
 </body>
 </html>
