@@ -173,6 +173,7 @@ body{font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;backgrou
 .settle-denom{font-size:0.9375rem;font-weight:600;min-width:5rem}
 .settle-input{width:80px;padding:0.375rem 0.625rem;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:0.9375rem;text-align:right;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
 .settle-input:focus{border-color:var(--accent)}
+.settle-input::placeholder{color:var(--text3)}
 .staff-btn{padding:0.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text1);font-size:0.9375rem;font-family:inherit;cursor:pointer}
 .staff-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .settle-subtotal{font-size:0.875rem;color:var(--text2)}
@@ -1597,7 +1598,7 @@ function buildSettlementInputs() {
   document.getElementById('settlement-input-card').innerHTML = DENOMINATIONS.map(d =>
     `<div class="settlement-row">
       <div class="settle-denom">¥${d.toLocaleString()}</div>
-      <input class="settle-input" type="number" value="0" min="0" inputmode="numeric" onchange="updateSettleTotal(${d},this.value)">
+      <input class="settle-input" type="number" value="" placeholder="0" min="0" inputmode="numeric" onchange="updateSettleTotal(${d},this.value)">
       <div class="settle-subtotal" id="settle-sub-${d}">¥0</div>
     </div>`).join('');
   updateSettleTotalDisplay();
@@ -1915,7 +1916,7 @@ function renderCashManage(content) {
       <div class="settlement-card">
         ${DENOMINATIONS.map(d=>`<div class="settlement-row">
           <div class="settle-denom">¥${d.toLocaleString()}</div>
-          <input class="settle-input" type="number" value="${cashManageCounts[d]||0}" min="0" inputmode="numeric" onchange="updateCashManage(${d},this.value)">
+          <input class="settle-input" type="number" value="${cashManageCounts[d]||''}" placeholder="0" min="0" inputmode="numeric" onchange="updateCashManage(${d},this.value)">
           <div class="settle-subtotal" id="cm-sub-${d}">¥${(d*(cashManageCounts[d]||0)).toLocaleString()}</div>
         </div>`).join('')}
       </div>
@@ -1967,7 +1968,7 @@ function renderCashManage(content) {
       <div class="settlement-card">
         ${DENOMINATIONS.map(d=>`<div class="settlement-row">
           <div class="settle-denom">¥${d.toLocaleString()}</div>
-          <input class="settle-input" type="number" value="${cashManageCounts[d]||0}" min="0" inputmode="numeric" onchange="updateCashManage(${d},this.value)">
+          <input class="settle-input" type="number" value="${cashManageCounts[d]||''}" placeholder="0" min="0" inputmode="numeric" onchange="updateCashManage(${d},this.value)">
           <div class="settle-subtotal" id="cm-sub-${d}">¥${(d*(cashManageCounts[d]||0)).toLocaleString()}</div>
         </div>`).join('')}
       </div>
