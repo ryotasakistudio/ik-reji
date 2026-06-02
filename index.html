@@ -238,6 +238,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .variant-opt-select-btn:disabled{opacity:0.35;cursor:not-allowed}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
   window.supabase = window.supabase.createClient(
     'https://fjmiuvhhldrywrfnjfyj.supabase.co',
@@ -475,6 +476,13 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
         <div class="others-item-left">
           <div class="others-item-icon" style="background:#f0e6fb;color:#7c3aed"><i class="ti ti-package"></i></div>
           <div><div class="others-item-title">商品管理</div><div class="others-item-sub">在庫変更・商品削除</div></div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--text3)"></i>
+      </div>
+      <div class="others-item" onclick="openOthersSection('assistant-qr')">
+        <div class="others-item-left">
+          <div class="others-item-icon" style="background:#e0f2fe;color:#0284c7"><i class="ti ti-qrcode"></i></div>
+          <div><div class="others-item-title">アシスタント用QR</div><div class="others-item-sub">スタッフ向けログインQRを表示</div></div>
         </div>
         <i class="ti ti-chevron-right" style="color:var(--text3)"></i>
       </div>
@@ -1666,7 +1674,7 @@ function openSettleDetail(idx) {
 
 // ======= OTHERS =======
 function openOthersSection(section) {
-  const titles = {report:'レポート','settle-history':'精算・入金履歴','cash-manage':'レジ金管理','product-manage':'商品管理'};
+  const titles = {report:'レポート','settle-history':'精算・入金履歴','cash-manage':'レジ金管理','product-manage':'商品管理','assistant-qr':'アシスタント用QR'};
   document.getElementById('others-sub-title').textContent = titles[section]||section;
   const content = document.getElementById('others-sub-content');
   if (section==='report') {
@@ -1692,6 +1700,8 @@ function openOthersSection(section) {
     </div>` : '<div class="empty-state"><i class="ti ti-receipt-off"></i><p>履歴がありません</p></div>';
   } else if (section==='cash-manage') {
     renderCashManage(content);
+  } else if (section==='assistant-qr') {
+    renderAssistantQR(content);
   }
   showScreen('others-sub');
 }
@@ -2050,11 +2060,54 @@ function doSetRegiFund() {
   showToast(`レジ金を¥${newTotal.toLocaleString()}に更新しました`);
 }
 
+// ======= ASSISTANT QR =======
+async function renderAssistantQR(content) {
+  content.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:2rem 1rem;gap:1rem">
+    <p style="color:var(--text2);font-size:0.875rem">読み込み中...</p>
+  </div>`;
+  const { data: profile } = await supabase.from('profiles').select('assistant_token').eq('id', currentUser.id).single();
+  if (!profile?.assistant_token) {
+    content.innerHTML = `<div style="padding:1rem;color:var(--red)">QRコードの取得に失敗しました</div>`;
+    return;
+  }
+  const url = `${location.origin}${location.pathname}?token=${profile.assistant_token}`;
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;padding:1.5rem 1rem;gap:1rem">
+      <p style="font-size:0.875rem;color:var(--text2);text-align:center">スタッフにこのQRを読み取ってもらうと<br>自動でログインできます</p>
+      <canvas id="qr-canvas"></canvas>
+      <p style="font-size:0.75rem;color:var(--text3);word-break:break-all;text-align:center">${url}</p>
+    </div>`;
+  QRCode.toCanvas(document.getElementById('qr-canvas'), url, { width: 240, margin: 2 });
+}
+
 // ======= UTILS =======
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('auth-screen').style.display!=='none')doLogin();});
+
+// ======= TOKEN AUTO LOGIN =======
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (!token) return;
+  history.replaceState({}, '', location.pathname);
+  const res = await fetch(`/api/assistant-login?token=${encodeURIComponent(token)}`);
+  const json = await res.json();
+  if (!json.access_token) { showToast('QRコードが無効です'); return; }
+  await supabase.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { showToast('ログインに失敗しました'); return; }
+  const { data: profile } = await supabase.from('profiles').select('artist_name').eq('id', user.id).maybeSingle();
+  currentUser = { id: user.id, name: profile?.artist_name || user.email };
+  appData = await loadUserData(user.id);
+  document.getElementById('topbar-artist').textContent = currentUser.name;
+  document.getElementById('logout-artist-name').textContent = currentUser.name;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'flex';
+  document.getElementById('main-app').style.flexDirection = 'column';
+  renderProducts(); renderTransactions(); renderDailyReport(); buildSettlementInputs();
+})();
 
 // ======= SESSION RESTORE =======
 (async () => {
