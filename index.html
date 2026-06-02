@@ -291,7 +291,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div id="checkout-tab-library">
       <div class="section-header">
         <span class="section-title">商品一覧</span>
-        <span class="section-action" onclick="openAddProduct()"><i class="ti ti-plus"></i> 追加</span>
+        <span class="section-action admin-only" onclick="openAddProduct()"><i class="ti ti-plus"></i> 追加</span>
       </div>
       <div class="products-grid" id="products-grid-library"></div>
     </div>
@@ -1311,7 +1311,7 @@ function openTxDetail(txId) {
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('modal-tx-detail')">閉じる</button>
-      ${!isRefund?`<button class="btn-accent" style="background:var(--red)" onclick="closeModal('modal-tx-detail');openRefund('${tx.id}')">返品</button>`:''}
+      ${!isRefund&&!currentUser?.isAssistant?`<button class="btn-accent" style="background:var(--red)" onclick="closeModal('modal-tx-detail');openRefund('${tx.id}')">返品</button>`:''}
     </div>`;
   document.getElementById('modal-tx-detail').classList.add('open');
 }
