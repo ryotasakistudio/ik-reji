@@ -673,7 +673,7 @@ function enterApp(isAssistant) {
   buildSettlementInputs();
 }
 
-function confirmLogout() {
+async function confirmLogout() {
   if (!confirm('本当にログアウトしますか？')) return;
   localStorage.removeItem('ik_session');
   currentUser = null; appData = {}; cart = [];
@@ -681,7 +681,12 @@ function confirmLogout() {
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('main-app').style.display = 'none';
   document.getElementById('login-pw').value = '';
-  showAuthCard('login');
+  const { data: profiles } = await supabase.from('profiles').select('id, artist_name').order('artist_name');
+  const list = document.getElementById('artist-list');
+  list.innerHTML = (profiles || []).map(p =>
+    `<button onclick="selectArtist('${p.id}','${p.artist_name.replace(/'/g,"\\'")}\')" style="width:100%;padding:0.875rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:1rem;font-family:inherit;cursor:pointer;font-weight:600;text-align:left">${p.artist_name}</button>`
+  ).join('');
+  showAuthCard('artist-select');
 }
 
 // ======= NAV =======
