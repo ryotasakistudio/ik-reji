@@ -970,6 +970,8 @@ async function saveProduct() {
   const price = parseInt(document.getElementById('product-price-input').value);
   if (!name || isNaN(price)) { showToast('全項目を入力してください'); return; }
   btn.disabled = true;
+  btn.textContent = '保存中...';
+  await new Promise(r => setTimeout(r, 0)); // ブラウザに描画を先に行わせる
   try {
     const keys = buildVariantKeys(productVariants);
     const hasVariants = keys.length > 0;
@@ -1018,6 +1020,7 @@ async function saveProduct() {
     showToast(editingProductId ? '商品を更新しました' : '商品を追加しました');
   } finally {
     btn.disabled = false;
+    btn.textContent = editingProductId ? '更新' : '保存';
   }
 }
 function toggleFav(e, id) {
