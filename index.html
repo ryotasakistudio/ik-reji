@@ -2028,7 +2028,7 @@ function doSetRegiFund() {
   DENOMINATIONS.forEach(d=>{ cur[d]=(cur[d]||0)+(cashManageCounts[d]||0); });
   sharedData.regiFundCounts=cur;
   sharedData.cashLedger=sharedData.cashLedger||[];
-  sharedData.cashLedger.unshift({type:'setup',amount:newTotal,date:new Date().toISOString(),counts:{...cur},staff:setupStaff,artist:currentUser.name});
+  sharedData.cashLedger.unshift({type:'setup',amount:newTotal,date:new Date().toISOString(),counts:{...cur},staff:setupStaff});
   saveUserData();
   cashSetupMode='view';
   renderCashManage(document.getElementById('others-sub-content'));
