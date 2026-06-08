@@ -1650,10 +1650,10 @@ function openOthersSection(section) {
         const d=new Date(item.date);
         const dateStr=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
         const badge=item.type==='settle'?`<span class="tx-badge badge-cash">精算</span>`:item.type==='setup'?`<span class="tx-badge" style="background:var(--amber-bg);color:var(--amber)">レジ金修正</span>`:`<span class="tx-badge badge-paypay">入金</span>`;
-        const rightCol = item.artist ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem">${badge}<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0.1rem 0.5rem;font-size:0.7rem;color:var(--text2)">${item.artist}</span></div>` : badge;
+        const artistBadge = item.artist ? `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0.1rem 0.4rem;font-size:0.7rem;color:var(--text2);margin-left:0.4rem">${item.artist}</span>` : '';
         return `<div class="tx-item" onclick="openSettleDetail(${idx})">
-          <div class="tx-item-header"><span class="tx-amount">¥${item.total.toLocaleString()}</span>${rightCol}</div>
-          <div class="tx-meta">${dateStr}${item.staff?` · 担当：${item.staff}`:''}</div>
+          <div class="tx-item-header"><span class="tx-amount">¥${item.total.toLocaleString()}</span>${badge}</div>
+          <div class="tx-meta">${dateStr}${item.staff?` · 担当：${item.staff}`:''}${artistBadge}</div>
         </div>`;
       }).join('')}
     </div>` : '<div class="empty-state"><i class="ti ti-receipt-off"></i><p>履歴がありません</p></div>';
