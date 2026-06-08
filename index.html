@@ -1592,7 +1592,7 @@ function doSettle() {
   if (!settleStaff) { showToast('担当者を選択してください'); return; }
   if (!confirm(`精算金額: ¥${total.toLocaleString()}\n精算しますか？`)) return;
   sharedData.settlements = sharedData.settlements||[];
-  sharedData.settlements.unshift({ id:'set_'+Date.now(), total, counts:{...settleCounts}, staff:settleStaff, date:new Date().toISOString() });
+  sharedData.settlements.unshift({ id:'set_'+Date.now(), total, counts:{...settleCounts}, staff:settleStaff, artist:currentUser.name, date:new Date().toISOString() });
   sharedData.regiFund = total;
   sharedData.regiFundCounts = {...settleCounts};
   saveUserData(); buildSettlementInputs(); showToast('精算が完了しました');
@@ -1641,8 +1641,8 @@ function openOthersSection(section) {
     initProductManageTemp();
     renderProductManage(content);
   } else if (section==='settle-history') {
-    const settleItems = (sharedData.settlements||[]).map(s=>({type:'settle',total:s.total,date:s.date,counts:s.counts,staff:s.staff||''}));
-    const depositItems = (sharedData.cashLedger||[]).filter(e=>e.type==='deposit'||e.type==='setup').map(e=>({type:e.type,total:e.amount,date:e.date,counts:e.counts,staff:e.staff||''}));
+    const settleItems = (sharedData.settlements||[]).map(s=>({type:'settle',total:s.total,date:s.date,counts:s.counts,staff:s.staff||'',artist:s.artist||''}));
+    const depositItems = (sharedData.cashLedger||[]).filter(e=>e.type==='deposit'||e.type==='setup').map(e=>({type:e.type,total:e.amount,date:e.date,counts:e.counts,staff:e.staff||'',artist:e.artist||''}));
     const allItems = [...settleItems,...depositItems].sort((a,b)=>new Date(b.date)-new Date(a.date));
     window._settleHistoryItems = allItems;
     content.innerHTML = allItems.length ? `<div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
@@ -1652,7 +1652,7 @@ function openOthersSection(section) {
         const badge=item.type==='settle'?`<span class="tx-badge badge-cash">精算</span>`:item.type==='setup'?`<span class="tx-badge" style="background:var(--amber-bg);color:var(--amber)">レジ金修正</span>`:`<span class="tx-badge badge-paypay">入金</span>`;
         return `<div class="tx-item" onclick="openSettleDetail(${idx})">
           <div class="tx-item-header"><span class="tx-amount">¥${item.total.toLocaleString()}</span>${badge}</div>
-          <div class="tx-meta">${dateStr}${item.staff?` · 担当：${item.staff}`:''}</div>
+          <div class="tx-meta">${dateStr}${item.artist?` · ${item.artist}`:''}${item.staff?` · 担当：${item.staff}`:''}</div>
         </div>`;
       }).join('')}
     </div>` : '<div class="empty-state"><i class="ti ti-receipt-off"></i><p>履歴がありません</p></div>';
@@ -2011,7 +2011,7 @@ function doCashDeposit() {
   const depositStaff = getStaffName('deposit');
   if (!depositStaff) { showToast('担当者を選択してください'); return; }
   sharedData.cashLedger=sharedData.cashLedger||[];
-  sharedData.cashLedger.unshift({type:'deposit',amount:total,date:new Date().toISOString(),counts:{...cashManageCounts},staff:depositStaff});
+  sharedData.cashLedger.unshift({type:'deposit',amount:total,date:new Date().toISOString(),counts:{...cashManageCounts},staff:depositStaff,artist:currentUser.name});
   saveUserData();
   const el=document.getElementById('cm-result');
   if(el)el.innerHTML=`<div style="padding:0.875rem;background:var(--green-bg);border-radius:var(--radius-sm);text-align:center;color:var(--green);font-weight:600">入金完了: ¥${total.toLocaleString()}</div>`;
@@ -2028,7 +2028,7 @@ function doSetRegiFund() {
   DENOMINATIONS.forEach(d=>{ cur[d]=(cur[d]||0)+(cashManageCounts[d]||0); });
   sharedData.regiFundCounts=cur;
   sharedData.cashLedger=sharedData.cashLedger||[];
-  sharedData.cashLedger.unshift({type:'setup',amount:newTotal,date:new Date().toISOString(),counts:{...cur},staff:setupStaff});
+  sharedData.cashLedger.unshift({type:'setup',amount:newTotal,date:new Date().toISOString(),counts:{...cur},staff:setupStaff,artist:currentUser.name});
   saveUserData();
   cashSetupMode='view';
   renderCashManage(document.getElementById('others-sub-content'));
