@@ -1534,7 +1534,7 @@ function renderDailyReport() {
       <div class="stat-row"><span class="stat-label">PayPay</span><span class="stat-value">¥${(paypayTotal - paypayRefundTotal).toLocaleString()}</span></div>
       <div class="stat-row"><span class="stat-label" style="color:var(--red)">返金（現金）</span><span class="stat-value" style="color:var(--red)">-¥${cashRefundTotal.toLocaleString()}</span></div>
       <div class="stat-row"><span class="stat-label" style="color:var(--red)">返金（PayPay）</span><span class="stat-value" style="color:var(--red)">-¥${paypayRefundTotal.toLocaleString()}</span></div>
-      <div class="stat-row"><span class="stat-label">取引数</span><span class="stat-value">${todayTxs.length}件</span></div>
+      <div class="stat-row"><span class="stat-label">取引数</span><span class="stat-value">${todayTxs.length - refunds.length}件</span></div>
     </div>
     <div class="report-card">
       <h3>商品別売上</h3>
@@ -1673,7 +1673,7 @@ function renderOthersReport(content) {
   const calc = (arr, refundArr) => ({
     sales: arr.reduce((s,t)=>s+t.total,0),
     count: arr.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0),
-    txCount: arr.length,
+    txCount: arr.length - (refundArr||[]).length,
     cash: arr.filter(t=>t.method==='cash').reduce((s,t)=>s+t.total,0),
     paypay: arr.filter(t=>t.method==='paypay').reduce((s,t)=>s+t.total,0),
     cashRefund: (refundArr||[]).filter(t=>t.method==='cash').reduce((s,t)=>s+t.total,0),
