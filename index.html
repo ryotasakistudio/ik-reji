@@ -1414,7 +1414,7 @@ function confirmRefund(txId) {
         <div class="settlement-card" style="margin-bottom:1rem">
           ${DENOMINATIONS.map(d=>`<div class="settlement-row">
             <div class="settle-denom">¥${d.toLocaleString()}</div>
-            <input class="settle-input" type="number" value="${window._refundCounts[d]||0}" min="0" inputmode="numeric" onchange="window._refundCounts[${d}]=parseInt(this.value)||0;window._renderRefundCountUI()">
+            <input class="settle-input" type="number" value="${window._refundCounts[d]||''}" placeholder="0" min="0" inputmode="numeric" onchange="window._refundCounts[${d}]=parseInt(this.value)||0;window._renderRefundCountUI()">
             <div class="settle-subtotal">¥${(d*(window._refundCounts[d]||0)).toLocaleString()}</div>
           </div>`).join('')}
           <div class="settlement-row" style="background:var(--surface3,var(--surface2))">
@@ -1427,7 +1427,7 @@ function confirmRefund(txId) {
         <div class="settlement-card" style="margin-bottom:1rem">
           ${DENOMINATIONS.map(d=>`<div class="settlement-row">
             <div class="settle-denom">¥${d.toLocaleString()}</div>
-            <input class="settle-input" type="number" value="${window._refundReceiveCounts[d]||0}" min="0" inputmode="numeric" onchange="window._refundReceiveCounts[${d}]=parseInt(this.value)||0;window._renderRefundCountUI()">
+            <input class="settle-input" type="number" value="${window._refundReceiveCounts[d]||''}" placeholder="0" min="0" inputmode="numeric" onchange="window._refundReceiveCounts[${d}]=parseInt(this.value)||0;window._renderRefundCountUI()">
             <div class="settle-subtotal">¥${(d*(window._refundReceiveCounts[d]||0)).toLocaleString()}</div>
           </div>`).join('')}
           <div class="settlement-row" style="background:var(--surface3,var(--surface2))">
