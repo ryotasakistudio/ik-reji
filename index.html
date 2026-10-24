@@ -1017,6 +1017,10 @@ async function saveProduct() {
       appData.products.push({ id: productId, favorite: false, ...productData });
     }
     saveUserData(); closeModal('modal-add-product'); renderProducts();
+    const pmContent = document.getElementById('others-sub-content');
+    if (pmContent && pmContent.querySelector('.btn-primary[onclick*="applyProductManageChanges"]')) {
+      initProductManageTemp(); renderProductManage(pmContent);
+    }
     showToast(editingProductId ? '商品を更新しました' : '商品を追加しました');
   } finally {
     btn.disabled = false;
