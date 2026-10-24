@@ -836,7 +836,7 @@ function openAddProduct(productId = null) {
       productVariantImageUrls = Object.assign({}, p.variantImages || {});
       document.getElementById('product-name-input').value = p.name;
       document.getElementById('product-price-input').value = p.price;
-      document.getElementById('product-stock-input').value = p.stock;
+      document.getElementById('product-stock-input').value = p.stock || '';
       document.getElementById('add-product-modal-title').textContent = '商品を編集';
       document.getElementById('save-product-btn').textContent = '更新';
     }
