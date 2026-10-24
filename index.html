@@ -1945,7 +1945,26 @@ function renderCashManage(content) {
         </div>
         ${counts?`<div style="height:1px;background:var(--border);margin:0 0 0.5rem"></div>${denomRows}`:''}
       </div>
-      <button onclick="startCashSetupEdit()" style="width:100%;padding:1rem;background:var(--surface2);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:1rem;cursor:pointer;font-family:inherit;font-weight:600">修正</button>`;
+      <div style="display:flex;gap:0.5rem;margin-top:0">
+        <button onclick="startCashSetupEdit()" style="flex:1;padding:1rem;background:var(--surface2);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:1rem;cursor:pointer;font-family:inherit;font-weight:600">修正（追加）</button>
+        <button onclick="startBreakdownEdit()" style="flex:1;padding:1rem;background:var(--surface2);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:1rem;cursor:pointer;font-family:inherit;font-weight:600">内訳変更</button>
+      </div>`;
+  } else if (cashSetupMode==='breakdown') {
+    const bdTotal = DENOMINATIONS.reduce((s,d)=>s+d*(cashManageCounts[d]||0),0);
+    tabContent = `
+      <div style="padding:0.375rem 0 0.75rem;text-align:center">
+        <div style="font-size:0.8125rem;color:var(--text2);margin-bottom:0.25rem">内訳後のレジ金</div>
+        <div style="font-size:1.5rem;font-weight:700" id="cm-total-bd">¥${bdTotal.toLocaleString()}</div>
+      </div>
+      <div class="settlement-card">
+        ${DENOMINATIONS.map(d=>`<div class="settlement-row">
+          <div class="settle-denom">¥${d.toLocaleString()}</div>
+          <input class="settle-input" type="number" value="${cashManageCounts[d]||''}" placeholder="0" min="0" inputmode="numeric" onchange="updateCashManageBD(${d},this.value)">
+          <div class="settle-subtotal" id="cm-sub-bd-${d}">¥${(d*(cashManageCounts[d]||0)).toLocaleString()}</div>
+        </div>`).join('')}
+      </div>
+      <button class="btn-accent" onclick="doBreakdownChange()" style="width:100%;padding:1rem;margin-top:0.5rem">内訳を保存</button>
+      <button onclick="cashSetupMode='view';cashManageCounts={};renderCashManage(document.getElementById('others-sub-content'))" style="width:100%;padding:0.875rem;margin-top:0.5rem;background:none;border:none;color:var(--text2);font-size:0.9375rem;cursor:pointer">キャンセル</button>`;
   } else {
     const curTotal = sharedData.regiFund||0;
     const addTotal = DENOMINATIONS.reduce((s,d)=>s+d*(cashManageCounts[d]||0),0);
@@ -2037,6 +2056,32 @@ function doSetRegiFund() {
   cashSetupMode='view';
   renderCashManage(document.getElementById('others-sub-content'));
   showToast(`レジ金を¥${newTotal.toLocaleString()}に更新しました`);
+}
+
+function startBreakdownEdit() {
+  cashManageCounts = Object.assign({}, sharedData.regiFundCounts || {});
+  cashSetupMode = 'breakdown';
+  renderCashManage(document.getElementById('others-sub-content'));
+}
+function updateCashManageBD(denom, val) {
+  cashManageCounts[denom] = parseInt(val) || 0;
+  const total = DENOMINATIONS.reduce((s,d)=>s+d*(cashManageCounts[d]||0), 0);
+  const el = document.getElementById('cm-total-bd');
+  if (el) el.textContent = '¥' + total.toLocaleString();
+  const sub = document.getElementById('cm-sub-bd-' + denom);
+  if (sub) sub.textContent = '¥' + (denom * (cashManageCounts[denom] || 0)).toLocaleString();
+}
+function doBreakdownChange() {
+  const newCounts = {};
+  DENOMINATIONS.forEach(d => { if (cashManageCounts[d]) newCounts[d] = cashManageCounts[d]; });
+  const newTotal = DENOMINATIONS.reduce((s,d)=>s+d*(newCounts[d]||0), 0);
+  sharedData.regiFund = newTotal;
+  sharedData.regiFundCounts = newCounts;
+  saveUserData();
+  cashSetupMode = 'view';
+  cashManageCounts = {};
+  renderCashManage(document.getElementById('others-sub-content'));
+  showToast('内訳を変更しました');
 }
 
 // ======= ASSISTANT QR =======
